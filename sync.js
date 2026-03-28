@@ -1,140 +1,167 @@
 // ============================================================
-//  FIELDOC — sync.js
-//  Motor de sincronización offline → Google Sheets
-//  Versión·A · v1.0
+//  FIELDOC — sync.js  v2.0
+//  Motor de sincronización — simple y fiable
+//  Versión·A
+//
+//  PRINCIPIO: El servidor (Sheets) es la fuente de verdad.
+//  IndexedDB es solo un espejo local + cola de pendientes.
+//  Al arrancar con conexión, siempre se descarga el estado
+//  real del servidor y se reconcilia con el local.
 // ============================================================
 
 const SYNC = {
 
   _sincronizando: false,
-  _onStatusChange: null,   // callback para actualizar UI
+  _onStatusChange: null,
 
-  // ── Estado de conectividad ───────────────────────────
-  estaOnline() {
-    return navigator.onLine;
-  },
+  estaOnline() { return navigator.onLine; },
 
-  // ── Inicializar listeners de red ─────────────────────
+  // ── Init ─────────────────────────────────────────────
   init(onStatusChange) {
     this._onStatusChange = onStatusChange || (() => {});
-
-    window.addEventListener('online',  () => {
-      console.log('[SYNC] Conexión recuperada — iniciando sync');
-      this._notificar();
-      this.sincronizar();
-    });
-
-    window.addEventListener('offline', () => {
-      console.log('[SYNC] Sin conexión');
-      this._notificar();
-    });
-
-    // Sync inicial si hay conexión
+    window.addEventListener('online',  () => { this._notificar(); this.sincronizar(); });
+    window.addEventListener('offline', () => { this._notificar(); });
     if (this.estaOnline()) this.sincronizar();
   },
 
   async _notificar() {
     const pendientes = await DB.contarPendientes();
-    this._onStatusChange({
-      online:     this.estaOnline(),
-      pendientes,
-      sincronizando: this._sincronizando
-    });
+    this._onStatusChange({ online: this.estaOnline(), pendientes, sincronizando: this._sincronizando });
   },
 
-  // ── Sincronización principal ─────────────────────────
+  // ════════════════════════════════════════════════════
+  //  SINCRONIZACIÓN PRINCIPAL
+  //  1. Vaciar cola de pendientes (subir cambios locales)
+  //  2. Descargar estado real del servidor
+  //  3. Reconciliar: el servidor manda
+  // ════════════════════════════════════════════════════
   async sincronizar() {
     if (this._sincronizando || !this.estaOnline()) return;
-
-    const queue = await DB.getQueue();
-    if (queue.length === 0) {
-      await this._notificar();
-      return;
-    }
-
     this._sincronizando = true;
     await this._notificar();
-    console.log(`[SYNC] Procesando ${queue.length} operaciones pendientes`);
 
-    for (const op of queue) {
-      try {
-        await this._procesarOperacion(op);
-        await DB.eliminarDeQueue(op.id);
-        console.log(`[SYNC] OK → ${op.tipo} (${op.id})`);
-      } catch (ex) {
-        await DB.incrementarIntentos(op.id);
-        console.warn(`[SYNC] Error en ${op.tipo}: ${ex.message} (intento ${op.intentos + 1})`);
-        // Si falla más de 5 veces, lo dejamos para más tarde
-        if (op.intentos >= 5) {
-          console.error(`[SYNC] Operación ${op.id} descartada tras 5 intentos`);
-          await DB.eliminarDeQueue(op.id);
-        }
-        // Parar si perdemos conexión a mitad
-        if (!this.estaOnline()) break;
-      }
+    try {
+      // PASO 1: Vaciar cola de pendientes
+      await this._vaciarCola();
+
+      // PASO 2 y 3: Descargar servidor y reconciliar
+      await this._reconciliar();
+
+    } catch (ex) {
+      console.warn('[SYNC] Error en sincronización:', ex.message);
     }
 
     this._sincronizando = false;
     await this._notificar();
   },
 
-  // ── Procesar cada tipo de operación ─────────────────
+  // ── Vaciar cola de operaciones pendientes ────────────
+  async _vaciarCola() {
+    const queue = await DB.getQueue();
+    if (queue.length === 0) return;
+    console.log(`[SYNC] Vaciando cola: ${queue.length} operaciones`);
+
+    for (const op of queue) {
+      if (!this.estaOnline()) break;
+      try {
+        await this._procesarOperacion(op);
+        await DB.eliminarDeQueue(op.id);
+        console.log(`[SYNC] ✓ ${op.tipo}`);
+      } catch (ex) {
+        await DB.incrementarIntentos(op.id);
+        console.warn(`[SYNC] ✗ ${op.tipo}: ${ex.message}`);
+        // Descartar después de 3 intentos para no bloquear la cola
+        if (op.intentos >= 3) {
+          console.error(`[SYNC] Descartando operación tras 3 intentos: ${op.id}`);
+          await DB.eliminarDeQueue(op.id);
+        }
+      }
+    }
+  },
+
+  // ── Reconciliar local con servidor ───────────────────
+  // El servidor es la fuente de verdad. Descargamos todo
+  // y reemplazamos el estado local con lo que dice Sheets.
+  async _reconciliar() {
+    try {
+      const inspecciones = await API.getInspecciones();
+
+      // IDs que existen en el servidor
+      const idsServidor = new Set(inspecciones.map(i => i.id));
+
+      // IDs que existen en local
+      const locales     = await DB.getInspecciones();
+      const idsLocales  = new Set(locales.map(i => i.id));
+
+      // Eliminar del local los que NO están en el servidor
+      // (son registros huérfanos de pruebas o syncs fallidas)
+      for (const ins of locales) {
+        if (!idsServidor.has(ins.id) && !ins._pendiente) {
+          console.log(`[SYNC] Eliminando huérfano local: ${ins.id}`);
+          await DB._eliminarInspeccionLocal(ins.id);
+        }
+      }
+
+      // Guardar o actualizar en local todos los del servidor
+      for (const ins of inspecciones) {
+        const local = locales.find(l => l.id === ins.id);
+        // Solo sobreescribir si no hay cambios locales pendientes
+        const tienePendientes = await DB._tienePendientes(ins.id);
+        if (!tienePendientes) {
+          await DB.guardarInspeccion({ ...ins, _pendiente: false });
+        }
+      }
+
+      console.log(`[SYNC] Reconciliado: ${inspecciones.length} inspecciones del servidor`);
+    } catch (ex) {
+      console.warn('[SYNC] Error reconciliando:', ex.message);
+    }
+  },
+
+  // ── Procesar operación de la cola ────────────────────
   async _procesarOperacion(op) {
     switch (op.tipo) {
-
       case 'crearInspeccion':
         await API.crearInspeccion(op.payload);
         break;
-
       case 'actualizarEstado':
         await API.actualizarEstado(op.payload);
         break;
-
       case 'actualizarCabecera':
         await API.post('actualizarcabecera', op.payload);
         break;
-
       case 'guardarRespuesta':
         await API.guardarRespuesta(op.payload);
         break;
-
       case 'subirArchivo': {
-        // Recuperar el blob de IndexedDB y convertir a base64
         const blob = await DB.getBlob(op.payload.id_archivo_local);
         if (!blob) throw new Error('Blob no encontrado: ' + op.payload.id_archivo_local);
-        const base64 = await API.blobToBase64(blob);
-        const resultado = await API.subirArchivo({
-          ...op.payload,
-          base64,
-          mime_type: blob.type
-        });
-        // Actualizar URL en metadatos locales con la URL real de Drive
-        const meta = await DB.getCatalogo('archivo_' + op.payload.id_archivo_local);
+        const base64   = await API.blobToBase64(blob);
+        const resultado = await API.subirArchivo({ ...op.payload, base64, mime_type: blob.type });
+        // Marcar como subido en metadatos locales
+        const archivos = await DB.getArchivosByRespuesta(op.payload.id_respuesta);
+        const meta     = archivos.find(a => a.id === op.payload.id_archivo_local);
         if (meta) {
-          meta.url       = resultado.url;
-          meta.num_orden = resultado.num_orden;
-          meta.subido    = true;
+          meta.url    = resultado.url;
+          meta.subido = true;
           await DB.guardarArchivoMeta(meta);
         }
         break;
       }
-
       case 'eliminarArchivo':
         await API.eliminarArchivo(op.payload);
         break;
-
       default:
-        throw new Error('Tipo de operación desconocido: ' + op.tipo);
+        throw new Error('Tipo desconocido: ' + op.tipo);
     }
   },
 
   // ════════════════════════════════════════════════════
-  //  API pública — escrituras que van a la cola
+  //  API PÚBLICA — escrituras
   // ════════════════════════════════════════════════════
 
-  // Crear inspección: guarda local + encola
   async crearInspeccion(data) {
-    // Guardar en local
+    // Guardar local con flag _pendiente
     await DB.guardarInspeccion({
       id:           data.id,
       id_cliente:   data.id_cliente,
@@ -143,10 +170,10 @@ const SYNC = {
       fecha:        data.fecha,
       operario:     data.operario,
       estado:       'Borrador',
-      _local:       true   // flag: creado localmente, pendiente de sync
+      _pendiente:   true
     });
 
-    // Guardar filas de respuesta vacías en local
+    // Guardar respuestas vacías localmente
     if (data.preguntas) {
       for (const p of data.preguntas) {
         await DB.guardarRespuesta({
@@ -156,112 +183,120 @@ const SYNC = {
           orden_global:  p.orden_global,
           respuesta:     '',
           observaciones: '',
-          _local:        true
+          _pendiente:    true
         });
       }
     }
 
-    // Encolar para sync con servidor — incluir el id local para coherencia
-    await DB.encolar('crearInspeccion', {
-      id:           data.id,
-      id_cliente:   data.id_cliente,
-      id_plantilla: data.id_plantilla,
-      id_empleado:  data.id_empleado || '',
-      operario:     data.operario
-    });
-
-    if (this.estaOnline()) this.sincronizar();
+    // Si hay conexión, intentar sync inmediata
+    if (this.estaOnline()) {
+      try {
+        await API.crearInspeccion({
+          id:           data.id,
+          id_cliente:   data.id_cliente,
+          id_plantilla: data.id_plantilla,
+          id_empleado:  data.id_empleado || '',
+          operario:     data.operario
+        });
+        // Confirmado en servidor — quitar flag pendiente
+        const ins = await DB.getInspeccion(data.id);
+        if (ins) { ins._pendiente = false; await DB.guardarInspeccion(ins); }
+        console.log('[SYNC] Inspección creada en servidor: ' + data.id);
+      } catch (ex) {
+        // Falló — encolar para reintento
+        console.warn('[SYNC] Sync inmediata falló, encolando:', ex.message);
+        await DB.encolar('crearInspeccion', {
+          id: data.id, id_cliente: data.id_cliente,
+          id_plantilla: data.id_plantilla, id_empleado: data.id_empleado || '',
+          operario: data.operario
+        });
+      }
+    } else {
+      // Sin conexión — encolar
+      await DB.encolar('crearInspeccion', {
+        id: data.id, id_cliente: data.id_cliente,
+        id_plantilla: data.id_plantilla, id_empleado: data.id_empleado || '',
+        operario: data.operario
+      });
+    }
+    await this._notificar();
   },
 
-  // Guardar respuesta: actualiza local + encola
   async guardarRespuesta(idRespuesta, campo, valor) {
     const resp = await DB.getRespuesta(idRespuesta);
     if (!resp) throw new Error('Respuesta no encontrada: ' + idRespuesta);
-
     resp[campo] = valor;
     await DB.guardarRespuesta(resp);
 
-    // Encolar solo campos de Sheets (no metadatos locales)
-    await DB.encolar('guardarRespuesta', {
-      id_respuesta:  idRespuesta,
-      respuesta:     resp.respuesta,
-      observaciones: resp.observaciones
-    });
-
-    if (this.estaOnline()) this.sincronizar();
+    // Intentar sync inmediata, encolar si falla
+    if (this.estaOnline()) {
+      try {
+        await API.guardarRespuesta({ id_respuesta: idRespuesta, respuesta: resp.respuesta, observaciones: resp.observaciones });
+      } catch (ex) {
+        await DB.encolar('guardarRespuesta', { id_respuesta: idRespuesta, respuesta: resp.respuesta, observaciones: resp.observaciones });
+      }
+    } else {
+      await DB.encolar('guardarRespuesta', { id_respuesta: idRespuesta, respuesta: resp.respuesta, observaciones: resp.observaciones });
+    }
+    await this._notificar();
   },
 
-  // Actualizar estado de inspección
   async actualizarEstado(idInspeccion, estado) {
     await DB.actualizarEstadoInspeccion(idInspeccion, estado);
+    if (this.estaOnline()) {
+      try {
+        await API.actualizarEstado({ id: idInspeccion, estado });
+        return;
+      } catch (ex) { /* encolar abajo */ }
+    }
     await DB.encolar('actualizarEstado', { id: idInspeccion, estado });
-    if (this.estaOnline()) this.sincronizar();
+    await this._notificar();
   },
 
-  // Guardar archivo (audio o foto)
   async guardarArchivo(meta, blob) {
-    // Guardar blob en local
     await DB.guardarBlob(meta.id, blob);
+    await DB.guardarArchivoMeta({ ...meta, subido: false, url: null });
 
-    // Guardar metadatos
-    await DB.guardarArchivoMeta({
-      ...meta,
-      subido: false,
-      url:    null  // se actualizará cuando se sincronice
-    });
-
-    // Encolar subida
-    await DB.encolar('subirArchivo', {
-      id_archivo_local: meta.id,
-      id_respuesta:     meta.id_respuesta,
-      id_inspeccion:    meta.id_inspeccion,
-      tipo:             meta.tipo
-    });
-
-    if (this.estaOnline()) this.sincronizar();
+    if (this.estaOnline()) {
+      try {
+        const base64    = await API.blobToBase64(blob);
+        const resultado = await API.subirArchivo({ ...meta, base64, mime_type: blob.type, id_archivo_local: meta.id });
+        const guardado  = await DB.getArchivosByRespuesta(meta.id_respuesta);
+        const m         = guardado.find(a => a.id === meta.id);
+        if (m) { m.url = resultado.url; m.subido = true; await DB.guardarArchivoMeta(m); }
+        return;
+      } catch (ex) { /* encolar abajo */ }
+    }
+    await DB.encolar('subirArchivo', { id_archivo_local: meta.id, id_respuesta: meta.id_respuesta, id_inspeccion: meta.id_inspeccion, tipo: meta.tipo });
+    await this._notificar();
   },
 
-  // Eliminar archivo
   async eliminarArchivo(id, idServidor) {
     await DB.eliminarArchivo(id);
-    if (idServidor) {
+    if (idServidor && this.estaOnline()) {
+      try { await API.eliminarArchivo({ id_archivo: idServidor }); return; } catch (ex) { /* encolar */ }
       await DB.encolar('eliminarArchivo', { id_archivo: idServidor });
-      if (this.estaOnline()) this.sincronizar();
     }
   },
 
-  // ── Carga inicial de catálogo desde servidor ─────────
+  // ── Catálogo ─────────────────────────────────────────
   async cargarCatalogo() {
-    if (!this.estaOnline()) {
-      console.log('[SYNC] Sin conexión — usando catálogo local');
-      return;
-    }
+    if (!this.estaOnline()) return;
     try {
       const [clientes, plantillas, empleados] = await Promise.all([
-        API.getClientes(),
-        API.getPlantillas(),
-        API.getEmpleados()
+        API.getClientes(), API.getPlantillas(), API.getEmpleados()
       ]);
       await DB.guardarCatalogo('clientes',   clientes);
       await DB.guardarCatalogo('plantillas', plantillas);
       await DB.guardarCatalogo('empleados',  empleados);
-      console.log('[SYNC] Catálogo actualizado desde servidor');
+      console.log('[SYNC] Catálogo actualizado');
     } catch (ex) {
-      console.warn('[SYNC] Error actualizando catálogo:', ex.message);
+      console.warn('[SYNC] Error catálogo:', ex.message);
     }
   },
 
-  // ── Cargar inspecciones desde servidor ───────────────
   async cargarInspecciones() {
-    if (!this.estaOnline()) return;
-    try {
-      const inspecciones = await API.getInspecciones();
-      for (const ins of inspecciones) {
-        await DB.guardarInspeccion({ ...ins, _local: false });
-      }
-      console.log(`[SYNC] ${inspecciones.length} inspecciones sincronizadas`);
-    } catch (ex) {
-      console.warn('[SYNC] Error cargando inspecciones:', ex.message);
-    }
+    // Ahora cargarInspecciones llama a reconciliar directamente
+    await this._reconciliar();
   }
 };

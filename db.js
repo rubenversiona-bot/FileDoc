@@ -258,5 +258,40 @@ const DB = {
   async contarPendientes() {
     const q = await this.getQueue();
     return q.length;
+  },
+
+  // ── Auxiliares para reconciliación ───────────────────
+
+  // Eliminar una inspección del local (y sus respuestas y archivos)
+  async _eliminarInspeccionLocal(id) {
+    try {
+      // Eliminar respuestas
+      const respuestas = await this.getRespuestasByInspeccion(id);
+      for (const r of respuestas) {
+        // Eliminar archivos de cada respuesta
+        const archivos = await this.getArchivosByRespuesta(r.id);
+        for (const a of archivos) {
+          await dbDelete(this._db, STORES.ARCHIVOS, a.id);
+          await dbDelete(this._db, STORES.BLOBS, a.id);
+        }
+        await dbDelete(this._db, STORES.RESPUESTAS, r.id);
+      }
+      // Eliminar la inspección
+      await dbDelete(this._db, STORES.INSPECCIONES, id);
+      console.log('[DB] Eliminado local:', id);
+    } catch (ex) {
+      console.warn('[DB] Error eliminando local:', ex.message);
+    }
+  },
+
+  // Comprobar si hay operaciones pendientes para una inspección
+  async _tienePendientes(idInspeccion) {
+    const queue = await this.getQueue();
+    return queue.some(op =>
+      op.payload && (
+        op.payload.id === idInspeccion ||
+        op.payload.id_inspeccion === idInspeccion
+      )
+    );
   }
 };
