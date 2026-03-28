@@ -25,6 +25,24 @@ function fechaHoy() {
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 }
 
+// Normaliza cualquier formato de fecha a dd/mm/aaaa hh:mm
+function formatearFecha(fecha) {
+  if (!fecha) return '—';
+  // Si ya está en formato dd/mm/aaaa (lo que genera fechaHoy), dejarlo
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(fecha)) return fecha;
+  // Si viene del servidor como string largo, parsearlo
+  try {
+    const d = new Date(fecha);
+    if (isNaN(d.getTime())) return fecha;
+    const dd   = String(d.getDate()).padStart(2,'0');
+    const mm   = String(d.getMonth()+1).padStart(2,'0');
+    const aaaa = d.getFullYear();
+    const hh   = String(d.getHours()).padStart(2,'0');
+    const min  = String(d.getMinutes()).padStart(2,'0');
+    return `${dd}/${mm}/${aaaa} ${hh}:${min}`;
+  } catch (e) { return fecha; }
+}
+
 // ════════════════════════════════════════════════════════
 //  NAVEGACIÓN
 // ════════════════════════════════════════════════════════
@@ -115,7 +133,7 @@ function renderLista(inspecciones, clientes) {
       <div class="card-icono" style="background:var(--gris-2)">${icono}</div>
       <div class="card-info">
         <div class="card-cliente">${nombreCli}</div>
-        <div class="card-meta"><span>${ins.fecha||'—'}</span><span>${ins.operario||'—'}</span><span class="badge ${badgeClass}">${ins.estado}</span></div>
+        <div class="card-meta"><span>${formatearFecha(ins.fecha)}</span><span>${ins.operario||'—'}</span><span class="badge ${badgeClass}">${ins.estado}</span></div>
       </div>
       <div class="card-arrow">›</div>
     </div>`;
@@ -270,7 +288,7 @@ async function abrirInspeccion(id) {
 
     document.getElementById('form-cliente').textContent  = nombreCli;
     document.getElementById('form-cliente').dataset.idCliente = ins.id_cliente;
-    document.getElementById('form-fecha').textContent    = ins.fecha || '—';
+    document.getElementById('form-fecha').textContent    = formatearFecha(ins.fecha);
     document.getElementById('form-operario').textContent = ins.operario || '—';
     document.getElementById('form-operario').dataset.idEmpleado = ins.id_empleado || '';
 
@@ -282,7 +300,7 @@ async function abrirInspeccion(id) {
     }
     APP.secciones     = agruparPorSeccion(APP.preguntas);
     APP.seccionActual = 0;
-    renderSeccion();
+    await renderSeccion();
   } catch (ex) {
     toast('Error: ' + ex.message, 'error');
     irA('p-lista');
@@ -303,24 +321,63 @@ async function renderSeccion() {
   if (!seccion) return;
   const total  = APP.secciones.length;
   const actual = APP.seccionActual + 1;
+
+  // Progreso
   document.getElementById('prog-texto').textContent  = `Sección ${actual} de ${total}`;
   document.getElementById('prog-nombre').textContent = seccion.nombre;
   document.getElementById('prog-barra').style.width  = Math.round((actual/total)*100) + '%';
-  const btnPrev = document.getElementById('btn-prev-sec');
-  const btnNext = document.getElementById('btn-next-sec');
-  btnPrev.style.visibility = APP.seccionActual === 0 ? 'hidden' : 'visible';
-  btnNext.textContent = APP.seccionActual === total - 1 ? 'Finalizar ✓' : 'Siguiente →';
-  btnNext.className   = APP.seccionActual === total - 1 ? 'btn-primario btn-finalizar' : 'btn-primario';
 
+  // Botones de navegación
+  const esPrimera = APP.seccionActual === 0;
+  const esUltima  = APP.seccionActual === total - 1;
+  document.getElementById('btn-first').disabled = esPrimera;
+  document.getElementById('btn-prev').disabled  = esPrimera;
+  document.getElementById('btn-next').disabled  = esUltima;
+  document.getElementById('btn-last').disabled  = esUltima;
+
+  // Actualizar explorador lateral
+  await actualizarExplorador();
+
+  // Renderizar preguntas
   const cont = document.getElementById('preguntas-cont');
   cont.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
   const htmlPreguntas = [];
   for (const p of seccion.preguntas) {
-    const resp    = APP.respuestas.find(r => r.id_pregunta === p.id);
+    const resp     = APP.respuestas.find(r => r.id_pregunta === p.id);
     const archivos = resp ? await DB.getArchivosByRespuesta(resp.id) : [];
     htmlPreguntas.push(renderPregunta(p, resp, archivos));
   }
   cont.innerHTML = htmlPreguntas.join('');
+  window.scrollTo(0, 0);
+}
+
+async function actualizarExplorador() {
+  const cont = document.getElementById('explorador-secciones');
+  if (!cont) return;
+
+  const idInsp   = APP.inspeccionActual?.id;
+  const archivos = idInsp ? await DB.getArchivosByInspeccion(idInsp) : [];
+
+  cont.innerHTML = APP.secciones.map((sec, idx) => {
+    const pregsSec  = sec.preguntas;
+    const totalSec  = pregsSec.length;
+    let respondidas = 0;
+
+    for (const p of pregsSec) {
+      const resp = APP.respuestas.find(r => r.id_pregunta === p.id);
+      if (resp && resp.respuesta) respondidas++;
+    }
+
+    const color  = respondidas === 0        ? 'rojo'
+                 : respondidas === totalSec  ? 'verde'
+                 : 'naranja';
+    const activo = idx === APP.seccionActual ? 'activo' : '';
+
+    return `<div class="exp-item ${color} ${activo}" onclick="irASeccion(${idx})">
+      <span class="exp-num">${sec.num}</span>
+      <span class="exp-nombre">${sec.nombre}</span>
+    </div>`;
+  }).join('');
 }
 
 function renderPregunta(pregunta, resp, archivos) {
@@ -419,22 +476,23 @@ async function verFoto(id) {
 }
 
 // ── Navegación secciones ─────────────────────────────────
-function seccionAnterior() {
-  if (APP.seccionActual > 0) { APP.seccionActual--; renderSeccion(); window.scrollTo(0,0); }
+function irASeccion(idx) {
+  if (idx >= 0 && idx < APP.secciones.length) {
+    APP.seccionActual = idx;
+    renderSeccion();
+  }
 }
+function irPrimeraSeccion() { irASeccion(0); }
+function irUltimaSeccion()  { irASeccion(APP.secciones.length - 1); }
+function seccionAnterior()  { if (APP.seccionActual > 0) { APP.seccionActual--; renderSeccion(); } }
 async function seccionSiguiente() {
   if (APP.seccionActual < APP.secciones.length - 1) {
-    APP.seccionActual++; renderSeccion(); window.scrollTo(0,0);
-  } else {
-    await finalizarInspeccion();
+    APP.seccionActual++;
+    renderSeccion();
   }
 }
 async function finalizarInspeccion() {
-  try {
-    await SYNC.actualizarEstado(APP.inspeccionActual.id, 'Completado');
-    toast('Inspección completada', 'ok');
-    setTimeout(() => { irA('p-lista'); cargarLista(); }, 800);
-  } catch (ex) { toast('Error: ' + ex.message, 'error'); }
+  await abrirResumen(APP.inspeccionActual.id);
 }
 
 // ── Guardar respuesta ────────────────────────────────────
@@ -455,6 +513,8 @@ async function guardarRespuesta(idRespuesta, idPregunta, valor) {
   if (resp) resp.respuesta = valor;
   try {
     await SYNC.guardarRespuesta(idRespuesta, 'respuesta', valor);
+    // Actualizar explorador para reflejar nuevo estado de la sección
+    await actualizarExplorador();
   } catch (ex) { toast('Error guardando: ' + ex.message, 'error'); }
 }
 
@@ -652,6 +712,139 @@ async function eliminarArchivo(id, idPregunta, idRespuesta) {
     await refrescarArchivos(idPregunta, idRespuesta);
     toast('Archivo eliminado', '');
   } catch (ex) { toast('Error: ' + ex.message, 'error'); }
+}
+
+// ════════════════════════════════════════════════════════
+//  PANTALLA 4 — Resumen e informe
+// ════════════════════════════════════════════════════════
+async function abrirResumen(idInspeccion) {
+  irA('p-resumen');
+
+  try {
+    const ins = await DB.getInspeccion(idInspeccion);
+    if (!ins) throw new Error('Inspección no encontrada');
+    APP.inspeccionActual = ins;
+
+    // Cabecera
+    const clientes  = await DB.getCatalogo('clientes') || [];
+    const cliente   = clientes.find(c => c.id === ins.id_cliente);
+    const nombreCli = cliente ? (cliente.nombre_comercial || cliente.nombre) : ins.id_cliente;
+    document.getElementById('res-cliente').textContent  = nombreCli;
+    document.getElementById('res-fecha').textContent    = formatearFecha(ins.fecha);
+    document.getElementById('res-operario').textContent = ins.operario || '—';
+
+    // Cargar datos
+    const respuestas = await DB.getRespuestasByInspeccion(idInspeccion);
+    const preguntas  = await DB.getCatalogo('preguntas_' + ins.id_plantilla) || [];
+    const secciones  = agruparPorSeccion(preguntas);
+
+    // Stats globales
+    const total       = preguntas.length;
+    let respondidas   = 0;
+    let conAudio      = 0;
+    let sinRespuesta  = 0;
+
+    // Calcular stats con archivos
+    const archivosInsp = await DB.getArchivosByInspeccion(idInspeccion);
+
+    for (const p of preguntas) {
+      const resp = respuestas.find(r => r.id_pregunta === p.id);
+      if (resp && resp.respuesta) {
+        respondidas++;
+        const audios = archivosInsp.filter(a => a.id_respuesta === resp.id && a.tipo === 'Audio');
+        if (audios.length > 0) conAudio++;
+      } else {
+        sinRespuesta++;
+      }
+    }
+
+    document.getElementById('rg-total').textContent       = total;
+    document.getElementById('rg-respondidas').textContent = respondidas;
+    document.getElementById('rg-audios').textContent      = conAudio;
+    document.getElementById('rg-pendientes').textContent  = sinRespuesta;
+
+    // Renderizar secciones
+    const cont = document.getElementById('resumen-secciones');
+    cont.innerHTML = secciones.map((sec, secIdx) => {
+      const pregsSec = sec.preguntas;
+      let siCount = 0, noCount = 0, audioCount = 0, fotoCount = 0, ndCount = 0;
+
+      const htmlPregs = pregsSec.map(p => {
+        const resp    = respuestas.find(r => r.id_pregunta === p.id);
+        const audios  = archivosInsp.filter(a => a.id_respuesta === (resp?.id||'') && a.tipo === 'Audio');
+        const fotos   = archivosInsp.filter(a => a.id_respuesta === (resp?.id||'') && a.tipo === 'Foto');
+        const respVal = resp?.respuesta || '';
+
+        if (respVal === 'Sí') siCount++;
+        else if (respVal === 'No') noCount++;
+        else ndCount++;
+        if (audios.length > 0) audioCount++;
+        if (fotos.length > 0) fotoCount++;
+
+        const claseResp = respVal === 'Sí' ? 'rp-si' : respVal === 'No' ? 'rp-no' : 'rp-nd';
+        const textoResp = respVal || 'Sin respuesta';
+
+        return `<div class="resumen-pregunta" onclick="irAPregunta('${p.seccion_num}','${p.id}')">
+          <span class="rp-num">P${String(p.orden_global).padStart(2,'0')}</span>
+          <span class="rp-texto">${p.texto}</span>
+          <div class="rp-icons">
+            ${audios.length > 0 ? `<span title="${audios.length} audio(s)">🎤</span>` : ''}
+            ${fotos.length > 0  ? `<span title="${fotos.length} foto(s)">📷</span>` : ''}
+          </div>
+          <span class="rp-resp ${claseResp}">${textoResp}</span>
+        </div>`;
+      }).join('');
+
+      const pills = [
+        siCount  > 0 ? `<span class="pill pill-ok">✓ ${siCount} Sí</span>`       : '',
+        noCount  > 0 ? `<span class="pill pill-no">✗ ${noCount} No</span>`        : '',
+        audioCount>0 ? `<span class="pill pill-audio">🎤 ${audioCount}</span>`    : '',
+        fotoCount > 0? `<span class="pill pill-foto">📷 ${fotoCount}</span>`      : '',
+        ndCount  > 0 ? `<span class="pill pill-vacio">? ${ndCount} sin resp.</span>`: '',
+      ].filter(Boolean).join('');
+
+      return `<div class="resumen-seccion">
+        <div class="resumen-sec-header" onclick="toggleSeccionResumen(${secIdx})">
+          <span class="resumen-sec-nombre">${sec.num}. ${sec.nombre}</span>
+          <div class="resumen-sec-pills">${pills}</div>
+          <span style="color:var(--gris-5);font-size:14px" id="chevron-${secIdx}">›</span>
+        </div>
+        <div class="resumen-detalle" id="detalle-${secIdx}">
+          ${htmlPregs}
+        </div>
+      </div>`;
+    }).join('');
+
+  } catch (ex) {
+    toast('Error cargando resumen: ' + ex.message, 'error');
+    irA('p-lista');
+  }
+}
+
+function toggleSeccionResumen(idx) {
+  const det = document.getElementById('detalle-' + idx);
+  const chv = document.getElementById('chevron-' + idx);
+  if (!det) return;
+  const abierto = det.classList.toggle('abierto');
+  if (chv) chv.textContent = abierto ? '⌄' : '›';
+}
+
+function irAPregunta(seccionNum, idPregunta) {
+  // Volver al formulario en la sección correcta
+  const secIdx = APP.secciones.findIndex(s => String(s.num) === String(seccionNum));
+  if (secIdx !== -1) APP.seccionActual = secIdx;
+  irA('p-formulario');
+  renderSeccion().then(() => {
+    // Scroll a la pregunta
+    setTimeout(() => {
+      const el = document.getElementById('preg-' + idPregunta);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+  });
+}
+
+async function generarInforme() {
+  toast('Generación de informe con IA — próximamente', '');
 }
 
 // ════════════════════════════════════════════════════════

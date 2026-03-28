@@ -175,6 +175,85 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
 
 .divisor      { height: 1px; background: var(--gris-3); margin: 24px 0; }
 
+/* ── Explorador lateral de secciones ─────────────────── */
+.formulario-layout { display: flex; gap: 0; flex: 1; overflow: hidden; }
+
+/* Panel lateral ancho con número + nombre */
+.explorador { width: 180px; background: var(--gris-1); border-right: 1px solid var(--gris-3); display: flex; flex-direction: column; padding: 8px 0; gap: 2px; overflow-y: auto; flex-shrink: 0; }
+
+/* En móvil se colapsa a 52px mostrando solo el número */
+@media (max-width: 600px) {
+  .explorador { width: 52px; }
+  .exp-nombre { display: none; }
+}
+
+.exp-item { width: 100%; min-height: 44px; border-radius: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; border-left: 3px solid transparent; flex-shrink: 0; text-align: left; border-top: none; border-right: none; border-bottom: none; }
+.exp-item:hover { background: var(--gris-2); }
+.exp-item.activo { background: var(--gris-2); }
+.exp-num  { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.exp-nombre { font-size: 11px; line-height: 1.3; flex: 1; }
+
+.exp-item.verde   { border-left-color: var(--acento); }
+.exp-item.verde   .exp-num { background: rgba(0,200,150,0.2);  color: var(--acento); }
+.exp-item.verde   .exp-nombre { color: var(--gris-6); }
+.exp-item.naranja { border-left-color: var(--warn); }
+.exp-item.naranja .exp-num { background: rgba(255,183,0,0.2);  color: var(--warn); }
+.exp-item.naranja .exp-nombre { color: var(--gris-6); }
+.exp-item.rojo    { border-left-color: var(--peligro); }
+.exp-item.rojo    .exp-num { background: rgba(255,77,77,0.2);   color: var(--peligro); }
+.exp-item.rojo    .exp-nombre { color: var(--gris-5); }
+.exp-item.gris    { border-left-color: var(--gris-3); }
+.exp-item.gris    .exp-num { background: var(--gris-2); color: var(--gris-5); }
+.exp-item.gris    .exp-nombre { color: var(--gris-5); }
+
+.exp-item.activo.verde   .exp-nombre { color: var(--blanco); }
+.exp-item.activo.naranja .exp-nombre { color: var(--blanco); }
+.exp-item.activo.rojo    .exp-nombre { color: var(--blanco); }
+.exp-item.activo.gris    .exp-nombre { color: var(--blanco); }
+
+.formulario-main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.formulario-scroll { flex: 1; padding: 16px 16px 0; max-width: 640px; width: 100%; margin: 0 auto; }
+
+/* ── Navegación interna del formulario ────────────────── */
+.nav-interna { background: var(--gris-1); border-bottom: 1px solid var(--gris-3); padding: 8px 12px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.btn-nav-sm { padding: 6px 12px; background: var(--gris-2); border: 1px solid var(--gris-3); border-radius: 8px; color: var(--gris-6); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.btn-nav-sm:hover { border-color: var(--gris-5); color: var(--blanco); }
+.btn-nav-sm.primario { background: var(--acento); color: var(--negro); border-color: var(--acento); }
+.btn-nav-sm.primario:hover { background: #00E0A8; }
+.btn-nav-sm:disabled { opacity: 0.3; cursor: not-allowed; }
+.nav-sep { flex: 1; }
+
+/* ── Pantalla 4 — Resumen ─────────────────────────────── */
+.resumen-seccion { background: var(--gris-1); border: 1px solid var(--gris-3); border-radius: var(--radio-lg); margin-bottom: 12px; overflow: hidden; cursor: pointer; transition: border-color 0.2s; }
+.resumen-seccion:hover { border-color: var(--gris-4); }
+.resumen-sec-header { padding: 14px 18px; display: flex; align-items: center; gap: 12px; }
+.resumen-sec-nombre { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; flex: 1; }
+.resumen-sec-pills  { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { font-family: 'DM Mono', monospace; font-size: 10px; padding: 3px 7px; border-radius: 20px; white-space: nowrap; }
+.pill-ok      { background: rgba(0,200,150,0.15);  color: var(--acento); }
+.pill-no      { background: rgba(255,77,77,0.15);   color: var(--peligro); }
+.pill-audio   { background: rgba(0,153,255,0.15);   color: var(--acento-2); }
+.pill-foto    { background: rgba(255,183,0,0.15);   color: var(--warn); }
+.pill-vacio   { background: rgba(160,170,187,0.15); color: var(--gris-5); }
+
+.resumen-detalle { border-top: 1px solid var(--gris-3); display: none; }
+.resumen-detalle.abierto { display: block; }
+.resumen-pregunta { padding: 10px 18px; border-bottom: 1px solid var(--gris-3); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.15s; }
+.resumen-pregunta:last-child { border-bottom: none; }
+.resumen-pregunta:hover { background: var(--gris-2); }
+.rp-num  { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--acento); background: rgba(0,200,150,0.1); padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+.rp-texto{ font-size: 13px; flex: 1; color: var(--gris-6); line-height: 1.4; }
+.rp-icons{ display: flex; gap: 4px; font-size: 12px; flex-shrink: 0; }
+.rp-resp { font-family: 'DM Mono', monospace; font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+.rp-si   { background: rgba(0,200,150,0.15);  color: var(--acento); }
+.rp-no   { background: rgba(255,77,77,0.15);   color: var(--peligro); }
+.rp-nd   { background: rgba(160,170,187,0.1);  color: var(--gris-5); }
+
+.resumen-global { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 20px; }
+.rg-card { background: var(--gris-1); border: 1px solid var(--gris-3); border-radius: var(--radio); padding: 12px 10px; text-align: center; }
+.rg-num  { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; line-height: 1; margin-bottom: 4px; }
+.rg-label{ font-family: 'DM Mono', monospace; font-size: 9px; color: var(--gris-5); text-transform: uppercase; letter-spacing: 0.3px; }
+
 .archivo-play { background: none; border: 1px solid var(--gris-3); border-radius: 6px; color: var(--acento-2); cursor: pointer; font-size: 12px; padding: 2px 6px; transition: all 0.15s; }
 .archivo-play:hover { background: var(--gris-3); }
 
@@ -252,48 +331,69 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
 </div>
 
 <!-- PANTALLA 3 — Formulario -->
-<div class="pantalla" id="p-formulario">
+<div class="pantalla" id="p-formulario" style="display:none;flex-direction:column;">
   <div class="header">
     <button class="header-back" onclick="irA('p-lista');cargarLista()">← Salir</button>
-    <span class="header-title">Inspección</span>
+    <span class="header-title" id="form-titulo-header">Inspección</span>
     <span class="sync-badge online" id="sync-status-form">✓</span>
   </div>
-  <div class="contenido">
-    <div class="form-insp-header">
-      <div class="form-insp-campo form-insp-cliente">
-        <div class="form-insp-label">Cliente</div>
-        <div class="form-insp-valor">
-          <span id="form-cliente">—</span>
-          <button class="btn-editar-campo" onclick="editarCabecera('cliente')" title="Cambiar cliente">✎</button>
-        </div>
-      </div>
-      <div class="form-insp-campo">
-        <div class="form-insp-label">Fecha</div>
-        <div class="form-insp-valor" id="form-fecha">—</div>
-      </div>
-      <div class="form-insp-campo">
-        <div class="form-insp-label">Operario</div>
-        <div class="form-insp-valor">
-          <span id="form-operario">—</span>
-          <button class="btn-editar-campo" onclick="editarCabecera('operario')" title="Cambiar operario">✎</button>
-        </div>
+
+  <!-- Cabecera inspección -->
+  <div class="form-insp-header" style="margin:10px 12px 0;border-radius:12px;">
+    <div class="form-insp-campo form-insp-cliente">
+      <div class="form-insp-label">Cliente</div>
+      <div class="form-insp-valor">
+        <span id="form-cliente">—</span>
+        <button class="btn-editar-campo" onclick="editarCabecera('cliente')" title="Cambiar cliente">✎</button>
       </div>
     </div>
-    <div class="progreso-wrap">
-      <div class="progreso-info">
-        <span class="progreso-texto" id="prog-texto">Sección 1 de 10</span>
-      </div>
-      <div class="progreso-nombre" id="prog-nombre"></div>
-      <div class="progreso-track">
-        <div class="progreso-barra" id="prog-barra" style="width:10%"></div>
+    <div class="form-insp-campo">
+      <div class="form-insp-label">Fecha</div>
+      <div class="form-insp-valor" id="form-fecha">—</div>
+    </div>
+    <div class="form-insp-campo">
+      <div class="form-insp-label">Operario</div>
+      <div class="form-insp-valor">
+        <span id="form-operario">—</span>
+        <button class="btn-editar-campo" onclick="editarCabecera('operario')" title="Cambiar operario">✎</button>
       </div>
     </div>
-    <div id="preguntas-cont"></div>
-    <div class="bottom-space"></div>
   </div>
-  <div class="nav-secciones">
-    <button class="btn-nav-prev" id="btn-prev-sec" onclick="seccionAnterior()">← Anterior</button>
-    <button class="btn-primario" id="btn-next-sec" onclick="seccionSiguiente()">Siguiente →</button>
+
+  <!-- Navegación interna -->
+  <div class="nav-interna">
+    <button class="btn-nav-sm" id="btn-first" onclick="irPrimeraSeccion()">⟨⟨ Primera</button>
+    <button class="btn-nav-sm" id="btn-prev"  onclick="seccionAnterior()">← Anterior</button>
+    <span class="nav-sep"></span>
+    <button class="btn-nav-sm primario" id="btn-resumen" onclick="finalizarInspeccion()">Ver resumen</button>
+    <span class="nav-sep"></span>
+    <button class="btn-nav-sm" id="btn-next"  onclick="seccionSiguiente()">Siguiente →</button>
+    <button class="btn-nav-sm" id="btn-last"  onclick="irUltimaSeccion()">Última ⟩⟩</button>
+  </div>
+
+  <!-- Layout con explorador lateral -->
+  <div class="formulario-layout">
+
+    <!-- Explorador lateral -->
+    <div class="explorador" id="explorador-secciones"></div>
+
+    <!-- Contenido principal -->
+    <div class="formulario-main">
+      <!-- Progreso -->
+      <div style="padding:10px 16px 0;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+          <span class="progreso-texto" id="prog-texto">Sección 1 de 10</span>
+        </div>
+        <div class="progreso-nombre" id="prog-nombre" style="margin-bottom:8px;font-size:14px;"></div>
+        <div class="progreso-track"><div class="progreso-barra" id="prog-barra" style="width:10%"></div></div>
+      </div>
+
+      <!-- Preguntas -->
+      <div class="formulario-scroll">
+        <div id="preguntas-cont"></div>
+        <div style="height:20px"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -304,6 +404,63 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
     <div class="grab-timer" id="grab-timer">00:00</div>
     <div class="grab-label">Grabando...</div>
     <button class="btn-stop-grab" id="btn-stop-grab">⏹ Detener y guardar</button>
+  </div>
+</div>
+
+<!-- PANTALLA 4 — Resumen e informe -->
+<div class="pantalla" id="p-resumen">
+  <div class="header">
+    <button class="header-back" onclick="irA('p-formulario')">← Volver</button>
+    <span class="header-title">Resumen</span>
+    <span class="sync-badge online" id="sync-status-resumen">✓</span>
+  </div>
+  <div class="contenido">
+
+    <!-- Cabecera inspección -->
+    <div class="form-insp-header" style="margin-bottom:16px">
+      <div class="form-insp-campo form-insp-cliente">
+        <div class="form-insp-label">Cliente</div>
+        <div class="form-insp-valor" id="res-cliente">—</div>
+      </div>
+      <div class="form-insp-campo">
+        <div class="form-insp-label">Fecha</div>
+        <div class="form-insp-valor" id="res-fecha">—</div>
+      </div>
+      <div class="form-insp-campo">
+        <div class="form-insp-label">Operario</div>
+        <div class="form-insp-valor" id="res-operario">—</div>
+      </div>
+    </div>
+
+    <!-- Stats globales -->
+    <div class="resumen-global">
+      <div class="rg-card"><div class="rg-num" id="rg-total" style="color:var(--blanco)">—</div><div class="rg-label">Total</div></div>
+      <div class="rg-card"><div class="rg-num" id="rg-respondidas" style="color:var(--acento)">—</div><div class="rg-label">Respondidas</div></div>
+      <div class="rg-card"><div class="rg-num" id="rg-audios" style="color:var(--acento-2)">—</div><div class="rg-label">Con audio</div></div>
+      <div class="rg-card"><div class="rg-num" id="rg-pendientes" style="color:var(--warn)">—</div><div class="rg-label">Sin respuesta</div></div>
+    </div>
+
+    <div class="seccion-header" style="margin-bottom:14px">
+      <span class="seccion-titulo">Detalle por sección</span>
+      <span class="seccion-titulo" style="color:var(--gris-4)">Pulsa para expandir</span>
+    </div>
+
+    <!-- Secciones -->
+    <div id="resumen-secciones">
+      <div class="loader"><div class="spinner"></div> Cargando...</div>
+    </div>
+
+    <div class="divisor"></div>
+
+    <!-- Botón generar informe -->
+    <button class="btn-primario" id="btn-generar-informe" onclick="generarInforme()" style="margin-bottom:12px">
+      ✦ Generar informe con IA
+    </button>
+    <button class="btn-secundario" onclick="irA('p-formulario')">
+      Volver al formulario
+    </button>
+
+    <div class="bottom-space"></div>
   </div>
 </div>
 
