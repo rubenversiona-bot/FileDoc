@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Fieldoc</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --negro:    #0D0F12;
+  --gris-1:   #161A20;
+  --gris-2:   #1E2530;
+  --gris-3:   #2A3140;
+  --gris-4:   #3D4A5C;
+  --gris-5:   #6B7A8D;
+  --gris-6:   #A0AABB;
+  --blanco:   #F0F4F8;
+  --acento:   #00C896;
+  --acento-2: #0099FF;
+  --peligro:  #FF4D4D;
+  --warn:     #FFB700;
+  --radio:    12px;
+  --radio-lg: 20px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(--blanco); min-height: 100vh; overflow-x: hidden; }
+
+.pantalla { display: none; min-height: 100vh; flex-direction: column; }
+.pantalla.activa { display: flex; }
+
+.header { background: var(--gris-1); border-bottom: 1px solid var(--gris-3); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; gap: 12px; }
+.logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; color: var(--blanco); display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.logo-dot { width: 8px; height: 8px; background: var(--acento); border-radius: 50%; }
+.header-back { display: flex; align-items: center; gap: 6px; font-family: 'DM Mono', monospace; font-size: 13px; color: var(--gris-6); cursor: pointer; background: none; border: none; padding: 6px 0; transition: color 0.2s; flex-shrink: 0; }
+.header-back:hover { color: var(--blanco); }
+.header-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; color: var(--blanco); flex: 1; text-align: center; }
+
+.sync-badge { font-family: 'DM Mono', monospace; font-size: 10px; padding: 3px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+.sync-badge.online    { background: rgba(0,200,150,0.15); color: var(--acento); }
+.sync-badge.offline   { background: rgba(255,77,77,0.15);  color: var(--peligro); }
+.sync-badge.syncing   { background: rgba(0,153,255,0.15);  color: var(--acento-2); }
+.sync-badge.pending   { background: rgba(255,183,0,0.15);  color: var(--warn); }
+
+.contenido { flex: 1; padding: 20px; max-width: 680px; width: 100%; margin: 0 auto; }
+
+.stats-bar { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 24px; }
+.stat-card { background: var(--gris-1); border: 1px solid var(--gris-3); border-radius: var(--radio); padding: 14px 16px; text-align: center; }
+.stat-num  { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 28px; line-height: 1; margin-bottom: 4px; }
+.stat-label{ font-family: 'DM Mono', monospace; font-size: 10px; color: var(--gris-5); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-num.acento { color: var(--acento); }
+.stat-num.warn   { color: var(--warn); }
+.stat-num.blanco { color: var(--blanco); }
+
+.seccion-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.seccion-titulo { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--gris-5); text-transform: uppercase; letter-spacing: 1px; }
+
+.btn-primario { display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--acento); color: var(--negro); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; border: none; border-radius: var(--radio); padding: 14px 20px; cursor: pointer; transition: all 0.2s; width: 100%; }
+.btn-primario:hover  { background: #00E0A8; transform: translateY(-1px); }
+.btn-primario:active { transform: translateY(0); }
+.btn-primario:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.btn-secundario { display: flex; align-items: center; justify-content: center; background: transparent; color: var(--gris-6); font-family: 'DM Sans', sans-serif; font-weight: 500; font-size: 14px; border: 1px solid var(--gris-3); border-radius: var(--radio); padding: 13px 20px; cursor: pointer; transition: all 0.2s; width: 100%; }
+.btn-secundario:hover { border-color: var(--gris-5); color: var(--blanco); }
+
+.inspeccion-card { background: var(--gris-1); border: 1px solid var(--gris-3); border-radius: var(--radio-lg); padding: 18px 20px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 16px; animation: fadeUp 0.3s ease both; }
+.inspeccion-card:hover { border-color: var(--gris-4); background: var(--gris-2); transform: translateY(-2px); }
+@keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+.card-icono  { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.card-info   { flex: 1; min-width: 0; }
+.card-cliente{ font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; color: var(--blanco); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+.card-meta   { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--gris-5); display: flex; gap: 10px; flex-wrap: wrap; }
+.card-arrow  { color: var(--gris-4); font-size: 18px; flex-shrink: 0; }
+
+.badge { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.badge-borrador  { background: rgba(255,183,0,0.15);  color: var(--warn); }
+.badge-completado{ background: rgba(0,153,255,0.15);  color: var(--acento-2); }
+.badge-enviado   { background: rgba(0,200,150,0.15);  color: var(--acento); }
+
+.empty-state { text-align: center; padding: 60px 20px; color: var(--gris-5); }
+.empty-icon  { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+.empty-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; color: var(--gris-6); margin-bottom: 8px; }
+.empty-text  { font-size: 14px; line-height: 1.6; }
+
+.loader  { display: flex; align-items: center; justify-content: center; padding: 40px; gap: 8px; color: var(--gris-5); font-family: 'DM Mono', monospace; font-size: 13px; }
+.spinner { width: 18px; height: 18px; border: 2px solid var(--gris-3); border-top-color: var(--acento); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.fab { position: fixed; bottom: 28px; right: 24px; width: 58px; height: 58px; background: var(--acento); color: var(--negro); border: none; border-radius: 50%; font-size: 26px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(0,200,150,0.4); transition: all 0.2s; z-index: 200; }
+.fab:hover  { transform: scale(1.08); }
+.fab:active { transform: scale(0.96); }
+
+.form-group { margin-bottom: 20px; }
+.form-label { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--gris-5); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; display: block; }
+.form-input, .form-select { width: 100%; background: var(--gris-1); border: 1px solid var(--gris-3); border-radius: var(--radio); padding: 14px 16px; color: var(--blanco); font-family: 'DM Sans', sans-serif; font-size: 15px; outline: none; transition: border-color 0.2s; appearance: none; -webkit-appearance: none; }
+.form-input:focus, .form-select:focus { border-color: var(--acento); }
+.form-input::placeholder { color: var(--gris-4); }
+.form-select option { background: var(--gris-2); color: var(--blanco); }
+.form-select-wrap { position: relative; }
+.form-select-wrap::after { content: '▾'; position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: var(--gris-5); pointer-events: none; }
+
+.cliente-search-wrap { position: relative; }
+.cliente-dropdown { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--gris-2); border: 1px solid var(--gris-3); border-radius: var(--radio); max-height: 220px; overflow-y: auto; z-index: 300; display: none; }
+.cliente-dropdown.visible { display: block; }
+.cliente-opcion { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--gris-3); transition: background 0.15s; }
+.cliente-opcion:last-child { border-bottom: none; }
+.cliente-opcion:hover { background: var(--gris-3); }
+.cliente-opcion-nombre  { font-weight: 500; font-size: 14px; color: var(--blanco); margin-bottom: 2px; }
+.cliente-opcion-detalle { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--gris-5); }
+
+.plantilla-card { background: var(--gris-2); border: 1px solid var(--gris-3); border-radius: var(--radio); padding: 14px 16px; margin-top: 8px; display: none; }
+.plantilla-card.visible { display: block; }
+.plantilla-nombre { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.plantilla-desc   { font-size: 13px; color: var(--gris-5); }
+
+.form-insp-header { background: var(--gris-1); border: 1px solid var(--gris-3); border-radius: var(--radio-lg); padding: 16px 20px; margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.form-insp-cliente { grid-column: 1 / -1; }
+.form-insp-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--gris-5); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+.form-insp-valor { font-size: 14px; font-weight: 500; color: var(--blanco); }
+
+.progreso-wrap { margin-bottom: 20px; }
+.progreso-info { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.progreso-texto  { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--gris-5); }
+.progreso-nombre { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; color: var(--blanco); margin-bottom: 10px; }
+.progreso-track  { height: 4px; background: var(--gris-3); border-radius: 2px; overflow: hidden; }
+.progreso-barra  { height: 100%; background: var(--acento); border-radius: 2px; transition: width 0.4s ease; }
+
+.pregunta-card { background: var(--gris-1); border: 1px solid var(--gris-3); border-radius: var(--radio-lg); padding: 18px 18px 14px; margin-bottom: 12px; }
+.pregunta-header { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 14px; }
+.pregunta-num  { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--acento); background: rgba(0,200,150,0.1); padding: 3px 7px; border-radius: 6px; flex-shrink: 0; margin-top: 2px; }
+.pregunta-texto{ font-size: 15px; font-weight: 500; line-height: 1.5; color: var(--blanco); }
+
+.respuesta-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.btn-resp { padding: 12px; border: 1px solid var(--gris-3); border-radius: var(--radio); background: var(--gris-2); color: var(--gris-6); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; cursor: pointer; transition: all 0.15s; }
+.btn-resp:hover { border-color: var(--gris-5); color: var(--blanco); }
+.btn-resp.activo-si { background: rgba(0,200,150,0.15); border-color: var(--acento);  color: var(--acento); }
+.btn-resp.activo-no { background: rgba(255,77,77,0.15);  border-color: var(--peligro); color: var(--peligro); }
+
+.obs-input { width: 100%; background: var(--gris-2); border: 1px solid var(--gris-3); border-radius: var(--radio); padding: 10px 12px; color: var(--blanco); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none; transition: border-color 0.2s; resize: vertical; min-height: 60px; margin-bottom: 12px; }
+.obs-input:focus { border-color: var(--gris-5); }
+.obs-input::placeholder { color: var(--gris-4); }
+
+.archivos-cont { margin-bottom: 10px; }
+.archivo-item { display: flex; align-items: center; gap: 8px; background: var(--gris-2); border: 1px solid var(--gris-3); border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
+.archivo-icono  { font-size: 14px; }
+.archivo-nombre { flex: 1; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--gris-6); }
+.archivo-sync.subido    { color: var(--acento); font-size: 12px; }
+.archivo-sync.pendiente { color: var(--warn);   font-size: 12px; }
+.archivo-del { background: none; border: none; color: var(--gris-5); cursor: pointer; font-size: 14px; padding: 2px 4px; transition: color 0.15s; }
+.archivo-del:hover { color: var(--peligro); }
+
+.archivo-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn-archivo { padding: 10px 8px; background: var(--gris-2); border: 1px solid var(--gris-3); border-radius: var(--radio); color: var(--gris-6); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; text-align: center; }
+.btn-archivo:hover:not(:disabled) { border-color: var(--gris-5); color: var(--blanco); }
+
+.nav-secciones { background: var(--gris-1); border-top: 1px solid var(--gris-3); padding: 12px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 680px; width: 100%; }
+.btn-nav-prev { padding: 13px; background: transparent; border: 1px solid var(--gris-3); border-radius: var(--radio); color: var(--gris-6); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+.btn-nav-prev:hover { border-color: var(--gris-5); color: var(--blanco); }
+
+.modal-grabacion { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 500; }
+.modal-inner { background: var(--gris-1); border: 1px solid var(--gris-3); border-radius: var(--radio-lg); padding: 40px 32px; text-align: center; min-width: 260px; }
+.grab-pulso { width: 64px; height: 64px; background: rgba(255,77,77,0.2); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; animation: pulso 1s ease-in-out infinite; }
+.grab-pulso::after { content:''; width: 28px; height: 28px; background: var(--peligro); border-radius: 50%; }
+@keyframes pulso { 0%,100%{transform:scale(1);} 50%{transform:scale(1.15);} }
+.grab-timer { font-family: 'DM Mono', monospace; font-size: 36px; font-weight: 500; color: var(--blanco); margin-bottom: 8px; }
+.grab-label { font-size: 13px; color: var(--gris-5); margin-bottom: 24px; }
+.btn-stop-grab { background: var(--peligro); color: white; border: none; border-radius: var(--radio); padding: 12px 24px; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer; width: 100%; }
+
+.toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--gris-2); border: 1px solid var(--gris-3); border-radius: var(--radio); padding: 12px 20px; font-family: 'DM Mono', monospace; font-size: 13px; color: var(--blanco); opacity: 0; transition: all 0.3s; z-index: 999; white-space: nowrap; }
+.toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.error { border-color: var(--peligro); color: var(--peligro); }
+.toast.ok    { border-color: var(--acento);  color: var(--acento); }
+
+.divisor      { height: 1px; background: var(--gris-3); margin: 24px 0; }
+.bottom-space { height: 90px; }
+</style>
+</head>
+<body>
+
+<!-- PANTALLA 1 — Lista -->
+<div class="pantalla activa" id="p-lista">
+  <div class="header">
+    <div class="logo"><span class="logo-dot"></span>Fieldoc</div>
+    <span class="sync-badge online" id="sync-status">Sincronizado</span>
+  </div>
+  <div class="contenido">
+    <div class="stats-bar">
+      <div class="stat-card"><div class="stat-num blanco" id="stat-total">—</div><div class="stat-label">Total</div></div>
+      <div class="stat-card"><div class="stat-num warn"   id="stat-borrador">—</div><div class="stat-label">Borrador</div></div>
+      <div class="stat-card"><div class="stat-num acento" id="stat-enviado">—</div><div class="stat-label">Enviadas</div></div>
+    </div>
+    <div class="seccion-header">
+      <span class="seccion-titulo">Inspecciones</span>
+      <span class="seccion-titulo" id="insp-count" style="color:var(--gris-4)"></span>
+    </div>
+    <div id="lista-contenido"><div class="loader"><div class="spinner"></div> Cargando...</div></div>
+    <div class="bottom-space"></div>
+  </div>
+  <button class="fab" onclick="irA('p-nueva');iniciarNueva()">＋</button>
+</div>
+
+<!-- PANTALLA 2 — Nueva inspección -->
+<div class="pantalla" id="p-nueva">
+  <div class="header">
+    <button class="header-back" onclick="irA('p-lista')">← Volver</button>
+    <span class="header-title">Nueva inspección</span>
+    <div style="width:60px"></div>
+  </div>
+  <div class="contenido">
+    <div class="form-group">
+      <label class="form-label">Cliente</label>
+      <div class="cliente-search-wrap">
+        <input type="text" class="form-input" id="input-cliente" placeholder="Buscar cliente..." autocomplete="off" oninput="filtrarClientes(this.value)" onfocus="filtrarClientes(this.value)">
+        <div class="cliente-dropdown" id="cliente-dropdown"></div>
+      </div>
+      <input type="hidden" id="id-cliente-sel">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tipo de inspección</label>
+      <div class="form-select-wrap">
+        <select class="form-select" id="sel-plantilla" onchange="onPlantillaChange()">
+          <option value="">Seleccionar tipo de inspección...</option>
+        </select>
+      </div>
+      <div class="plantilla-card" id="plantilla-info">
+        <div class="plantilla-nombre" id="plantilla-nombre"></div>
+        <div class="plantilla-desc"   id="plantilla-desc"></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Operario</label>
+      <div class="cliente-search-wrap">
+        <input type="text" class="form-input" id="input-operario" placeholder="Buscar operario..." autocomplete="off" oninput="filtrarEmpleados(this.value)" onfocus="filtrarEmpleados(this.value)">
+        <div class="cliente-dropdown" id="empleado-dropdown"></div>
+      </div>
+      <input type="hidden" id="id-empleado-sel">
+    </div>
+    <div class="divisor"></div>
+    <button class="btn-primario" id="btn-crear" onclick="crearInspeccion()">Crear inspección</button>
+    <div style="height:16px"></div>
+    <button class="btn-secundario" onclick="irA('p-lista')">Cancelar</button>
+    <div class="bottom-space"></div>
+  </div>
+</div>
+
+<!-- PANTALLA 3 — Formulario -->
+<div class="pantalla" id="p-formulario">
+  <div class="header">
+    <button class="header-back" onclick="irA('p-lista');cargarLista()">← Salir</button>
+    <span class="header-title">Inspección</span>
+    <span class="sync-badge online" id="sync-status-form">✓</span>
+  </div>
+  <div class="contenido">
+    <div class="form-insp-header">
+      <div class="form-insp-campo form-insp-cliente">
+        <div class="form-insp-label">Cliente</div>
+        <div class="form-insp-valor" id="form-cliente">—</div>
+      </div>
+      <div class="form-insp-campo">
+        <div class="form-insp-label">Fecha</div>
+        <div class="form-insp-valor" id="form-fecha">—</div>
+      </div>
+      <div class="form-insp-campo">
+        <div class="form-insp-label">Operario</div>
+        <div class="form-insp-valor" id="form-operario">—</div>
+      </div>
+    </div>
+    <div class="progreso-wrap">
+      <div class="progreso-info">
+        <span class="progreso-texto" id="prog-texto">Sección 1 de 10</span>
+      </div>
+      <div class="progreso-nombre" id="prog-nombre"></div>
+      <div class="progreso-track">
+        <div class="progreso-barra" id="prog-barra" style="width:10%"></div>
+      </div>
+    </div>
+    <div id="preguntas-cont"></div>
+    <div class="bottom-space"></div>
+  </div>
+  <div class="nav-secciones">
+    <button class="btn-nav-prev" id="btn-prev-sec" onclick="seccionAnterior()">← Anterior</button>
+    <button class="btn-primario" id="btn-next-sec" onclick="seccionSiguiente()">Siguiente →</button>
+  </div>
+</div>
+
+<!-- Modal grabación -->
+<div class="modal-grabacion" id="modal-grabacion">
+  <div class="modal-inner">
+    <div class="grab-pulso"></div>
+    <div class="grab-timer" id="grab-timer">00:00</div>
+    <div class="grab-label">Grabando...</div>
+    <button class="btn-stop-grab" id="btn-stop-grab">⏹ Detener y guardar</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="db.js"></script>
+<script src="api.js"></script>
+<script src="sync.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
