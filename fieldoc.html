@@ -174,6 +174,12 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
 .toast.ok    { border-color: var(--acento);  color: var(--acento); }
 
 .divisor      { height: 1px; background: var(--gris-3); margin: 24px 0; }
+
+.archivo-play { background: none; border: 1px solid var(--gris-3); border-radius: 6px; color: var(--acento-2); cursor: pointer; font-size: 12px; padding: 2px 6px; transition: all 0.15s; }
+.archivo-play:hover { background: var(--gris-3); }
+
+.btn-editar-campo { background: none; border: none; color: var(--gris-5); cursor: pointer; font-size: 12px; padding: 2px 4px; margin-left: 4px; transition: color 0.15s; vertical-align: middle; }
+.btn-editar-campo:hover { color: var(--acento); }
 .bottom-space { height: 90px; }
 </style>
 </head>
@@ -256,7 +262,10 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
     <div class="form-insp-header">
       <div class="form-insp-campo form-insp-cliente">
         <div class="form-insp-label">Cliente</div>
-        <div class="form-insp-valor" id="form-cliente">—</div>
+        <div class="form-insp-valor">
+          <span id="form-cliente">—</span>
+          <button class="btn-editar-campo" onclick="editarCabecera('cliente')" title="Cambiar cliente">✎</button>
+        </div>
       </div>
       <div class="form-insp-campo">
         <div class="form-insp-label">Fecha</div>
@@ -264,7 +273,10 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
       </div>
       <div class="form-insp-campo">
         <div class="form-insp-label">Operario</div>
-        <div class="form-insp-valor" id="form-operario">—</div>
+        <div class="form-insp-valor">
+          <span id="form-operario">—</span>
+          <button class="btn-editar-campo" onclick="editarCabecera('operario')" title="Cambiar operario">✎</button>
+        </div>
       </div>
     </div>
     <div class="progreso-wrap">
