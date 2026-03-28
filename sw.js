@@ -4,7 +4,7 @@
 //  Versión·A · v1.0
 // ============================================================
 
-const CACHE_NAME = 'fieldoc-v1';
+const CACHE_NAME = 'fieldoc-v2';
 
 // Archivos que se cachean al instalar
 const ARCHIVOS_CACHE = [
