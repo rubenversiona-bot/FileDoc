@@ -90,6 +90,10 @@ const SYNC = {
         await API.actualizarEstado(op.payload);
         break;
 
+      case 'actualizarCabecera':
+        await API.post('actualizarcabecera', op.payload);
+        break;
+
       case 'guardarRespuesta':
         await API.guardarRespuesta(op.payload);
         break;
@@ -157,8 +161,9 @@ const SYNC = {
       }
     }
 
-    // Encolar para sync con servidor
+    // Encolar para sync con servidor — incluir el id local para coherencia
     await DB.encolar('crearInspeccion', {
+      id:           data.id,
       id_cliente:   data.id_cliente,
       id_plantilla: data.id_plantilla,
       id_empleado:  data.id_empleado || '',

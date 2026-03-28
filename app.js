@@ -469,51 +469,56 @@ async function guardarObservacion(idRespuesta, idPregunta, valor) {
 
 // ── Editar cliente u operario de la inspección ───────────
 async function editarCabecera(campo) {
-  // campo = 'cliente' | 'operario'
   const ins = APP.inspeccionActual;
   if (!ins) return;
 
   if (campo === 'cliente') {
-    // Reutilizar catálogo
     window._appClientes = await DB.getCatalogo('clientes') || [];
-    // Mostrar modal de selección
     mostrarModalEdicion('cliente', 'Cambiar cliente', async (id) => {
-      const c = window._appClientes.find(c => c.id === id);
+      const c = (window._appClientes||[]).find(c => c.id === id);
       if (!c) return;
       ins.id_cliente = id;
       await DB.guardarInspeccion(ins);
+      // Encolar sync al servidor
       await DB.encolar('actualizarCabecera', { id: ins.id, id_cliente: id });
+      if (SYNC.estaOnline()) SYNC.sincronizar();
       document.getElementById('form-cliente').textContent = c.nombre_comercial || c.nombre || id;
-      document.getElementById('form-cliente').dataset.idCliente = id;
       toast('Cliente actualizado', 'ok');
     });
   } else {
     window._appEmpleados = await DB.getCatalogo('empleados') || [];
     mostrarModalEdicion('operario', 'Cambiar operario', async (id) => {
-      const e = window._appEmpleados.find(e => e.id === id);
+      const e = (window._appEmpleados||[]).find(e => e.id === id);
       if (!e) return;
       ins.id_empleado = id;
       ins.operario    = e.nombre;
       await DB.guardarInspeccion(ins);
+      // Encolar sync al servidor
       await DB.encolar('actualizarCabecera', { id: ins.id, operario: e.nombre, id_empleado: id });
+      if (SYNC.estaOnline()) SYNC.sincronizar();
       document.getElementById('form-operario').textContent = e.nombre;
-      document.getElementById('form-operario').dataset.idEmpleado = id;
       toast('Operario actualizado', 'ok');
     });
   }
 }
 
+// Callback guardado para el modal de edición
+window._modalEditCallback = null;
+
 function mostrarModalEdicion(tipo, titulo, onSelect) {
   let modal = document.getElementById('modal-edicion');
   if (modal) modal.remove();
 
+  // Guardar callback en variable global para evitar serialización con toString()
+  window._modalEditCallback = onSelect;
+
+  const items = tipo === 'cliente'
+    ? (window._appClientes||[]).map(c => ({ id: c.id, nombre: c.nombre_comercial || c.nombre || c.id, sub: (c.municipio||'') + (c.cp ? ' '+c.cp : '') }))
+    : (window._appEmpleados||[]).map(e => ({ id: e.id, nombre: e.nombre, sub: e.categoria || '' }));
+
   modal = document.createElement('div');
   modal.id = 'modal-edicion';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:flex-end;justify-content:center;z-index:500;';
-
-  const items = tipo === 'cliente'
-    ? (window._appClientes||[]).map(c => ({ id: c.id, nombre: c.nombre_comercial || c.nombre || c.id, sub: `${c.municipio||''} ${c.cp||''}`.trim() }))
-    : (window._appEmpleados||[]).map(e => ({ id: e.id, nombre: e.nombre, sub: e.categoria || '' }));
 
   modal.innerHTML = `
     <div style="background:var(--gris-1);border-radius:20px 20px 0 0;width:100%;max-width:680px;max-height:70vh;overflow:hidden;display:flex;flex-direction:column;">
@@ -523,7 +528,7 @@ function mostrarModalEdicion(tipo, titulo, onSelect) {
       </div>
       <div style="overflow-y:auto;flex:1;">
         ${items.map(item => `
-          <div onclick="document.getElementById('modal-edicion').remove();(${onSelect.toString()})('${item.id}')"
+          <div onclick="seleccionarDesdeModal('${item.id}')"
                style="padding:14px 20px;border-bottom:1px solid var(--gris-3);cursor:pointer;transition:background 0.15s;"
                onmouseover="this.style.background='var(--gris-2)'" onmouseout="this.style.background=''">
             <div style="font-weight:500;font-size:14px;color:var(--blanco);margin-bottom:2px;">${item.nombre}</div>
@@ -534,6 +539,14 @@ function mostrarModalEdicion(tipo, titulo, onSelect) {
 
   document.body.appendChild(modal);
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function seleccionarDesdeModal(id) {
+  document.getElementById('modal-edicion')?.remove();
+  if (window._modalEditCallback) {
+    window._modalEditCallback(id);
+    window._modalEditCallback = null;
+  }
 }
 
 // ── Grabación de audio ───────────────────────────────────
