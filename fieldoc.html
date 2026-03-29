@@ -215,12 +215,14 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
 .formulario-scroll { flex: 1; padding: 16px 16px 0; max-width: 640px; width: 100%; margin: 0 auto; }
 
 /* ── Navegación interna del formulario ────────────────── */
-.nav-interna { background: var(--gris-1); border-bottom: 1px solid var(--gris-3); padding: 8px 12px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.btn-nav-sm { padding: 6px 12px; background: var(--gris-2); border: 1px solid var(--gris-3); border-radius: 8px; color: var(--gris-6); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-.btn-nav-sm:hover { border-color: var(--gris-5); color: var(--blanco); }
-.btn-nav-sm.primario { background: var(--acento); color: var(--negro); border-color: var(--acento); }
-.btn-nav-sm.primario:hover { background: #00E0A8; }
-.btn-nav-sm:disabled { opacity: 0.3; cursor: not-allowed; }
+.nav-interna { background: var(--gris-1); border-bottom: 1px solid var(--gris-3); padding: 8px 12px; display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; }
+.nav-interna-pie { background: var(--gris-1); border-top: 1px solid var(--gris-3); padding: 8px 12px; display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; margin-top: 8px; }
+.btn-nav-sm { padding: 8px 14px; background: var(--acento); border: none; border-radius: 8px; color: var(--negro); font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+.btn-nav-sm:hover { background: #00E0A8; transform: translateY(-1px); }
+.btn-nav-sm:active { transform: translateY(0); }
+.btn-nav-sm:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+.btn-nav-sm.resumen { background: var(--acento-2); color: var(--blanco); }
+.btn-nav-sm.resumen:hover { background: #33AAFF; }
 .nav-sep { flex: 1; }
 
 /* ── Pantalla 4 — Resumen ─────────────────────────────── */
@@ -391,6 +393,18 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
       <!-- Preguntas -->
       <div class="formulario-scroll">
         <div id="preguntas-cont"></div>
+
+        <!-- Barra de navegación pie -->
+        <div class="nav-interna-pie">
+          <button class="btn-nav-sm" id="btn-first-pie" onclick="irPrimeraSeccion()">⟨⟨ Primera</button>
+          <button class="btn-nav-sm" id="btn-prev-pie"  onclick="seccionAnterior()">← Anterior</button>
+          <span class="nav-sep"></span>
+          <button class="btn-nav-sm resumen" id="btn-resumen-pie" onclick="finalizarInspeccion()">Ver resumen</button>
+          <span class="nav-sep"></span>
+          <button class="btn-nav-sm" id="btn-next-pie"  onclick="seccionSiguiente()">Siguiente →</button>
+          <button class="btn-nav-sm" id="btn-last-pie"  onclick="irUltimaSeccion()">Última ⟩⟩</button>
+        </div>
+
         <div style="height:20px"></div>
       </div>
     </div>

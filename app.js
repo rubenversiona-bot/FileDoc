@@ -327,13 +327,13 @@ async function renderSeccion() {
   document.getElementById('prog-nombre').textContent = seccion.nombre;
   document.getElementById('prog-barra').style.width  = Math.round((actual/total)*100) + '%';
 
-  // Botones de navegación
+  // Botones de navegación — cabecera y pie
   const esPrimera = APP.seccionActual === 0;
   const esUltima  = APP.seccionActual === total - 1;
-  document.getElementById('btn-first').disabled = esPrimera;
-  document.getElementById('btn-prev').disabled  = esPrimera;
-  document.getElementById('btn-next').disabled  = esUltima;
-  document.getElementById('btn-last').disabled  = esUltima;
+  ['btn-first','btn-first-pie'].forEach(id => { const el = document.getElementById(id); if(el) el.disabled = esPrimera; });
+  ['btn-prev', 'btn-prev-pie' ].forEach(id => { const el = document.getElementById(id); if(el) el.disabled = esPrimera; });
+  ['btn-next', 'btn-next-pie' ].forEach(id => { const el = document.getElementById(id); if(el) el.disabled = esUltima;  });
+  ['btn-last', 'btn-last-pie' ].forEach(id => { const el = document.getElementById(id); if(el) el.disabled = esUltima;  });
 
   // Actualizar explorador lateral
   await actualizarExplorador();
