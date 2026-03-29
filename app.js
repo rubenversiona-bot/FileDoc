@@ -334,6 +334,8 @@ async function renderSeccion() {
   ['btn-prev', 'btn-prev-pie' ].forEach(id => { const el = document.getElementById(id); if(el) el.disabled = esPrimera; });
   ['btn-next', 'btn-next-pie' ].forEach(id => { const el = document.getElementById(id); if(el) el.disabled = esUltima;  });
   ['btn-last', 'btn-last-pie' ].forEach(id => { const el = document.getElementById(id); if(el) el.disabled = esUltima;  });
+  // Ver resumen solo en barra superior
+  const btnRes = document.getElementById('btn-resumen'); if(btnRes) btnRes.disabled = false;
 
   // Actualizar explorador lateral
   await actualizarExplorador();
