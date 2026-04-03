@@ -129,13 +129,13 @@ function renderLista(inspecciones, clientes) {
     const nombreCli = cliente ? (cliente.nombre_comercial && cliente.nombre_comercial.trim() ? cliente.nombre_comercial : (cliente.nombre || ins.id_cliente)) : ins.id_cliente;
     const badgeClass = { 'Borrador':'badge-borrador','Completado':'badge-completado','Enviado':'badge-enviado' }[ins.estado] || 'badge-borrador';
     const icono = ins.estado === 'Enviado' ? '✅' : ins.estado === 'Completado' ? '🔵' : '🟡';
-    return `<div class="inspeccion-card" style="animation-delay:${idx*0.05}s" onclick="abrirInspeccion('${ins.id}')">
-      <div class="card-icono" style="background:var(--gris-2)">${icono}</div>
-      <div class="card-info">
+    return `<div class="inspeccion-card" style="animation-delay:${idx*0.05}s">
+      <div class="card-icono" style="background:var(--gris-2);cursor:pointer;" onclick="abrirInspeccion('${ins.id}')">${icono}</div>
+      <div class="card-info" style="cursor:pointer;" onclick="abrirInspeccion('${ins.id}')">
         <div class="card-cliente">${nombreCli}</div>
         <div class="card-meta"><span>${formatearFecha(ins.fecha)}</span><span>${ins.operario||'—'}</span><span class="badge ${badgeClass}">${ins.estado}</span></div>
       </div>
-      <div class="card-arrow">›</div>
+      <button class="btn-borrar-insp" onclick="confirmarBorrarInspeccion('${ins.id}','${nombreCli}')" title="Eliminar">🗑</button>
     </div>`;
   }).join('');
 }
