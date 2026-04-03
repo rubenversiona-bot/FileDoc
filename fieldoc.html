@@ -362,17 +362,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
     </div>
   </div>
 
-  <!-- Navegación interna -->
-  <div class="nav-interna">
-    <button class="btn-nav-sm" id="btn-first" onclick="irPrimeraSeccion()">⟨⟨</button>
-    <button class="btn-nav-sm" id="btn-prev"  onclick="seccionAnterior()">←</button>
-    <span class="nav-sep"></span>
-    <button class="btn-nav-sm resumen" id="btn-resumen" onclick="finalizarInspeccion()">Ver resumen</button>
-    <span class="nav-sep"></span>
-    <button class="btn-nav-sm" id="btn-next"  onclick="seccionSiguiente()">→</button>
-    <button class="btn-nav-sm" id="btn-last"  onclick="irUltimaSeccion()">⟩⟩</button>
-  </div>
-
   <!-- Layout con explorador lateral -->
   <div class="formulario-layout">
 
@@ -389,7 +378,18 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
         <div class="progreso-nombre" id="prog-nombre" style="margin-bottom:8px;font-size:14px;"></div>
         <div class="progreso-track"><div class="progreso-barra" id="prog-barra" style="width:10%"></div></div>
       </div>
-
+      
+      <!-- Navegación interna -->
+      <div class="nav-interna">
+        <button class="btn-nav-sm" id="btn-first" onclick="irPrimeraSeccion()">⟨⟨</button>
+        <button class="btn-nav-sm" id="btn-prev"  onclick="seccionAnterior()">←</button>
+        <span class="nav-sep"></span>
+        <button class="btn-nav-sm resumen" id="btn-resumen" onclick="finalizarInspeccion()">Ver resumen</button>
+        <span class="nav-sep"></span>
+        <button class="btn-nav-sm" id="btn-next"  onclick="seccionSiguiente()">→</button>
+        <button class="btn-nav-sm" id="btn-last"  onclick="irUltimaSeccion()">⟩⟩</button>
+      </div>
+      
       <!-- Preguntas -->
       <div class="formulario-scroll">
         <div id="preguntas-cont"></div>
