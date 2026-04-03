@@ -36,11 +36,14 @@ const API = {
   getRespuestas(id)          { return this.get('getrespuestas', { id_inspeccion: id }); },
   getArchivos(id)            { return this.get('getarchivos',   { id_inspeccion: id }); },
 
-  crearInspeccion(data)      { return this.post('crearinspeccion',  data); },
-  actualizarEstado(data)     { return this.post('actualizarestado', data); },
-  guardarRespuesta(data)     { return this.post('guardarrespuesta', data); },
-  subirArchivo(data)         { return this.post('subirarchivo',     data); },
-  eliminarArchivo(data)      { return this.post('eliminararchivo',  data); },
+  crearInspeccion(data)          { return this.post('crearinspeccion',  data); },
+  actualizarEstado(data)         { return this.post('actualizarestado', data); },
+  actualizarCabecera(data)       { return this.post('actualizarcabecera', data); },
+  guardarRespuesta(data)         { return this.post('guardarrespuesta', data); },
+  subirArchivo(data)             { return this.post('subirarchivo',     data); },
+  eliminarArchivo(data)          { return this.post('eliminararchivo',  data); },
+  eliminarInspeccion(data)       { return this.post('eliminarinspeccion', data); },
+  getRespuestasByInspeccion(id)  { return this.get('getrespuestasbyinspeccion', { id_inspeccion: id }); },
 
   // ── Conversión blob a base64 para subida ─────────────
   async blobToBase64(blob) {

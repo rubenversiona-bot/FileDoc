@@ -126,7 +126,7 @@ function renderLista(inspecciones, clientes) {
   const sorted = [...inspecciones].sort((a, b) => (b.fecha||'').localeCompare(a.fecha||''));
   cont.innerHTML = sorted.map((ins, idx) => {
     const cliente   = clientes.find(c => c.id === ins.id_cliente);
-    const nombreCli = cliente ? (cliente.nombre_comercial || cliente.nombre || ins.id_cliente) : ins.id_cliente;
+    const nombreCli = cliente ? (cliente.nombre_comercial && cliente.nombre_comercial.trim() ? cliente.nombre_comercial : (cliente.nombre || ins.id_cliente)) : ins.id_cliente;
     const badgeClass = { 'Borrador':'badge-borrador','Completado':'badge-completado','Enviado':'badge-enviado' }[ins.estado] || 'badge-borrador';
     const icono = ins.estado === 'Enviado' ? '✅' : ins.estado === 'Completado' ? '🔵' : '🟡';
     return `<div class="inspeccion-card" style="animation-delay:${idx*0.05}s" onclick="abrirInspeccion('${ins.id}')">
@@ -138,6 +138,79 @@ function renderLista(inspecciones, clientes) {
       <div class="card-arrow">›</div>
     </div>`;
   }).join('');
+}
+
+// ════════════════════════════════════════════════════════
+//  BORRAR INSPECCIÓN
+// ════════════════════════════════════════════════════════
+function confirmarBorrarInspeccion(id, nombreCliente) {
+  // Crear modal de confirmación con checkbox
+  let modal = document.getElementById('modal-borrar');
+  if (modal) modal.remove();
+
+  modal = document.createElement('div');
+  modal.id = 'modal-borrar';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:500;padding:20px;';
+
+  modal.innerHTML = `
+    <div style="background:var(--gris-1);border:1px solid var(--peligro);border-radius:20px;padding:28px 24px;width:100%;max-width:400px;">
+      <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:18px;color:var(--peligro);margin-bottom:12px;">⚠ Eliminar inspección</div>
+      <div style="font-size:14px;color:var(--gris-6);margin-bottom:8px;">Vas a eliminar la inspección de:</div>
+      <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px;color:var(--blanco);margin-bottom:16px;">${nombreCliente}</div>
+      <div style="font-size:13px;color:var(--gris-5);margin-bottom:20px;line-height:1.5;">Se eliminarán permanentemente todos los datos, audios y fotos asociados. Esta acción no se puede deshacer.</div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:24px;padding:12px;background:var(--gris-2);border-radius:10px;">
+        <input type="checkbox" id="chk-confirmar-borrar" style="width:18px;height:18px;cursor:pointer;accent-color:var(--peligro);">
+        <span style="font-size:13px;color:var(--blanco);">Entiendo que esta acción es irreversible</span>
+      </label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <button onclick="document.getElementById('modal-borrar').remove()"
+          style="padding:12px;background:transparent;border:1px solid var(--gris-3);border-radius:10px;color:var(--gris-6);font-family:'Syne',sans-serif;font-weight:700;font-size:14px;cursor:pointer;">
+          Cancelar
+        </button>
+        <button id="btn-confirmar-borrar" onclick="ejecutarBorrarInspeccion('${id}')"
+          style="padding:12px;background:var(--gris-3);border:none;border-radius:10px;color:var(--gris-5);font-family:'Syne',sans-serif;font-weight:700;font-size:14px;cursor:not-allowed;transition:all 0.2s;"
+          disabled>
+          Eliminar
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(modal);
+
+  // Activar botón solo cuando el checkbox esté marcado
+  document.getElementById('chk-confirmar-borrar').onchange = function() {
+    const btn = document.getElementById('btn-confirmar-borrar');
+    if (this.checked) {
+      btn.style.background = 'var(--peligro)';
+      btn.style.color = 'white';
+      btn.style.cursor = 'pointer';
+      btn.disabled = false;
+    } else {
+      btn.style.background = 'var(--gris-3)';
+      btn.style.color = 'var(--gris-5)';
+      btn.style.cursor = 'not-allowed';
+      btn.disabled = true;
+    }
+  };
+}
+
+async function ejecutarBorrarInspeccion(id) {
+  document.getElementById('modal-borrar')?.remove();
+  toast('Eliminando inspección...', '');
+  try {
+    // Eliminar localmente
+    await DB._eliminarInspeccionLocal(id);
+    // Eliminar en servidor si hay conexión
+    if (SYNC.estaOnline()) {
+      await API.eliminarInspeccion({ id });
+    } else {
+      await DB.encolar('eliminarInspeccion', { id });
+    }
+    toast('Inspección eliminada', 'ok');
+    cargarLista();
+  } catch (ex) {
+    toast('Error eliminando: ' + ex.message, 'error');
+  }
 }
 
 // ════════════════════════════════════════════════════════
@@ -284,7 +357,7 @@ async function abrirInspeccion(id) {
     // ── FIX: mostrar nombre del cliente, no el ID ──
     const clientes  = await DB.getCatalogo('clientes') || [];
     const cliente   = clientes.find(c => c.id === ins.id_cliente);
-    const nombreCli = cliente ? (cliente.nombre_comercial || cliente.nombre || ins.id_cliente) : ins.id_cliente;
+    const nombreCli = cliente ? (cliente.nombre_comercial && cliente.nombre_comercial.trim() ? cliente.nombre_comercial : (cliente.nombre || ins.id_cliente)) : ins.id_cliente;
 
     document.getElementById('form-cliente').textContent  = nombreCli;
     document.getElementById('form-cliente').dataset.idCliente = ins.id_cliente;
@@ -292,7 +365,45 @@ async function abrirInspeccion(id) {
     document.getElementById('form-operario').textContent = ins.operario || '—';
     document.getElementById('form-operario').dataset.idEmpleado = ins.id_empleado || '';
 
+    // Cargar respuestas locales
     APP.respuestas = await DB.getRespuestasByInspeccion(id);
+
+    // Si no hay respuestas locales y hay conexión, descargar del servidor
+    if (APP.respuestas.length === 0 && SYNC.estaOnline()) {
+      try {
+        console.log('[APP] Descargando respuestas del servidor para:', id);
+        const respServidor = await API.getRespuestasByInspeccion(id);
+        if (respServidor && respServidor.length > 0) {
+          for (const r of respServidor) {
+            await DB.guardarRespuesta({ ...r, _pendiente: false });
+          }
+          APP.respuestas = await DB.getRespuestasByInspeccion(id);
+          console.log('[APP] Respuestas descargadas:', APP.respuestas.length);
+        }
+      } catch (ex) {
+        console.warn('[APP] Error descargando respuestas:', ex.message);
+      }
+    } else if (APP.respuestas.length > 0 && SYNC.estaOnline()) {
+      // Hay respuestas locales — verificar si el servidor tiene datos más recientes
+      try {
+        const respServidor = await API.getRespuestasByInspeccion(id);
+        if (respServidor && respServidor.length > 0) {
+          // Actualizar localmente solo las que tienen respuesta en servidor y no tienen pendientes locales
+          for (const rs of respServidor) {
+            const local = APP.respuestas.find(r => r.id === rs.id);
+            const tienePendiente = await DB._tienePendientes(id);
+            if (local && !tienePendiente && rs.respuesta && !local.respuesta) {
+              local.respuesta     = rs.respuesta;
+              local.observaciones = rs.observaciones;
+              await DB.guardarRespuesta({ ...local });
+            }
+          }
+          APP.respuestas = await DB.getRespuestasByInspeccion(id);
+        }
+      } catch (ex) {
+        console.warn('[APP] Error sincronizando respuestas:', ex.message);
+      }
+    }
     APP.preguntas  = await DB.getCatalogo('preguntas_' + ins.id_plantilla) || [];
     if (APP.preguntas.length === 0 && SYNC.estaOnline()) {
       APP.preguntas = await API.getPreguntas(ins.id_plantilla);

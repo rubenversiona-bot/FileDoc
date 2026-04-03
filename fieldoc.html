@@ -178,10 +178,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
 /* ── Explorador lateral de secciones ─────────────────── */
 .formulario-layout { display: flex; gap: 0; flex: 1; overflow: hidden; }
 
-/* Panel lateral ancho con número + nombre */
 .explorador { width: 180px; background: var(--gris-1); border-right: 1px solid var(--gris-3); display: flex; flex-direction: column; padding: 8px 0; gap: 2px; overflow-y: auto; flex-shrink: 0; }
 
-/* En móvil se colapsa a 52px mostrando solo el número */
 @media (max-width: 600px) {
   .explorador { width: 52px; }
   .exp-nombre { display: none; }
@@ -262,6 +260,47 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
 .btn-editar-campo { background: none; border: none; color: var(--gris-5); cursor: pointer; font-size: 12px; padding: 2px 4px; margin-left: 4px; transition: color 0.15s; vertical-align: middle; }
 .btn-editar-campo:hover { color: var(--acento); }
 .bottom-space { height: 90px; }
+
+/* ── Botón borrar inspección ─────────────────────────── */
+.btn-borrar-insp { background: none; border: none; color: var(--gris-4); font-size: 18px; cursor: pointer; padding: 8px; border-radius: 8px; transition: all 0.15s; flex-shrink: 0; }
+.btn-borrar-insp:hover { color: var(--peligro); background: rgba(255,77,77,0.1); }
+
+/* ── Toggle modo claro ───────────────────────────────── */
+.btn-modo { background: none; border: 1px solid var(--gris-3); border-radius: 20px; color: var(--gris-5); font-size: 14px; padding: 4px 10px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+.btn-modo:hover { border-color: var(--gris-5); color: var(--blanco); }
+
+/* ── Modo claro ──────────────────────────────────────── */
+body.claro {
+  --negro:    #F0F4F8;
+  --gris-1:   #FFFFFF;
+  --gris-2:   #F0F4F8;
+  --gris-3:   #D0D8E4;
+  --gris-4:   #9AAABB;
+  --gris-5:   #6B7A8D;
+  --gris-6:   #3D4A5C;
+  --blanco:   #1A2233;
+  --acento:   #008F6A;
+  --acento-2: #0070CC;
+  --peligro:  #CC2222;
+  --warn:     #CC8800;
+}
+body.claro .logo-dot { background: var(--acento); }
+body.claro .inspeccion-card { box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+body.claro .pregunta-card   { box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+body.claro .explorador { border-right-color: var(--gris-3); }
+
+/* ── Explorador lateral mejorado ─────────────────────── */
+.exp-item.activo {
+  background: var(--gris-2) !important;
+  border-left-width: 4px !important;
+}
+.exp-item.activo .exp-num {
+  font-weight: 700;
+  transform: scale(1.1);
+}
+.exp-item.activo .exp-nombre {
+  font-weight: 600;
+}
 </style>
 </head>
 <body>
@@ -270,6 +309,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
 <div class="pantalla activa" id="p-lista">
   <div class="header">
     <div class="logo"><span class="logo-dot"></span>Fieldoc</div>
+    <button class="btn-modo" onclick="toggleModo()" id="btn-modo" title="Cambiar modo">☀</button>
     <span class="sync-badge online" id="sync-status">Sincronizado</span>
   </div>
   <div class="contenido">
@@ -340,7 +380,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
     <span class="sync-badge online" id="sync-status-form">✓</span>
   </div>
 
-  <!-- Cabecera inspección -->
   <div class="form-insp-header" style="margin:10px 12px 0;border-radius:12px;">
     <div class="form-insp-campo form-insp-cliente">
       <div class="form-insp-label">Cliente</div>
@@ -362,15 +401,9 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
     </div>
   </div>
 
-  <!-- Layout con explorador lateral -->
   <div class="formulario-layout">
-
-    <!-- Explorador lateral -->
     <div class="explorador" id="explorador-secciones"></div>
-
-    <!-- Contenido principal -->
     <div class="formulario-main">
-      <!-- Progreso -->
       <div style="padding:10px 16px 0;">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
           <span class="progreso-texto" id="prog-texto">Sección 1 de 10</span>
@@ -378,8 +411,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
         <div class="progreso-nombre" id="prog-nombre" style="margin-bottom:8px;font-size:14px;"></div>
         <div class="progreso-track"><div class="progreso-barra" id="prog-barra" style="width:10%"></div></div>
       </div>
-      
-      <!-- Navegación interna -->
+
       <div class="nav-interna">
         <button class="btn-nav-sm" id="btn-first" onclick="irPrimeraSeccion()">⟨⟨</button>
         <button class="btn-nav-sm" id="btn-prev"  onclick="seccionAnterior()">←</button>
@@ -389,12 +421,9 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
         <button class="btn-nav-sm" id="btn-next"  onclick="seccionSiguiente()">→</button>
         <button class="btn-nav-sm" id="btn-last"  onclick="irUltimaSeccion()">⟩⟩</button>
       </div>
-      
-      <!-- Preguntas -->
+
       <div class="formulario-scroll">
         <div id="preguntas-cont"></div>
-
-        <!-- Barra de navegación pie -->
         <div class="nav-interna-pie">
           <button class="btn-nav-sm" id="btn-first-pie" onclick="irPrimeraSeccion()">⟨⟨</button>
           <button class="btn-nav-sm" id="btn-prev-pie"  onclick="seccionAnterior()">←</button>
@@ -402,7 +431,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
           <button class="btn-nav-sm" id="btn-next-pie"  onclick="seccionSiguiente()">→</button>
           <button class="btn-nav-sm" id="btn-last-pie"  onclick="irUltimaSeccion()">⟩⟩</button>
         </div>
-
         <div style="height:20px"></div>
       </div>
     </div>
@@ -427,8 +455,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
     <span class="sync-badge online" id="sync-status-resumen">✓</span>
   </div>
   <div class="contenido">
-
-    <!-- Cabecera inspección -->
     <div class="form-insp-header" style="margin-bottom:16px">
       <div class="form-insp-campo form-insp-cliente">
         <div class="form-insp-label">Cliente</div>
@@ -444,7 +470,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
       </div>
     </div>
 
-    <!-- Stats globales -->
     <div class="resumen-global">
       <div class="rg-card"><div class="rg-num" id="rg-total" style="color:var(--blanco)">—</div><div class="rg-label">Total</div></div>
       <div class="rg-card"><div class="rg-num" id="rg-respondidas" style="color:var(--acento)">—</div><div class="rg-label">Respondidas</div></div>
@@ -457,14 +482,12 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
       <span class="seccion-titulo" style="color:var(--gris-4)">Pulsa para expandir</span>
     </div>
 
-    <!-- Secciones -->
     <div id="resumen-secciones">
       <div class="loader"><div class="spinner"></div> Cargando...</div>
     </div>
 
     <div class="divisor"></div>
 
-    <!-- Botón generar informe -->
     <button class="btn-primario" id="btn-generar-informe" onclick="generarInforme()" style="margin-bottom:12px">
       ✦ Generar informe con IA
     </button>
@@ -479,6 +502,24 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<script>
+function toggleModo() {
+  const claro = document.body.classList.toggle('claro');
+  document.getElementById('btn-modo').textContent = claro ? '🌙' : '☀';
+  localStorage.setItem('fieldoc_modo', claro ? 'claro' : 'oscuro');
+}
+// Restaurar modo guardado
+(function() {
+  const modo = localStorage.getItem('fieldoc_modo');
+  if (modo === 'claro') {
+    document.body.classList.add('claro');
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('btn-modo');
+      if (btn) btn.textContent = '🌙';
+    });
+  }
+})();
+</script>
 <script src="db.js"></script>
 <script src="api.js"></script>
 <script src="sync.js"></script>

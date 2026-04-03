@@ -151,6 +151,10 @@ const SYNC = {
       case 'eliminarArchivo':
         await API.eliminarArchivo(op.payload);
         break;
+
+      case 'eliminarInspeccion':
+        await API.eliminarInspeccion(op.payload);
+        break;
       default:
         throw new Error('Tipo desconocido: ' + op.tipo);
     }
