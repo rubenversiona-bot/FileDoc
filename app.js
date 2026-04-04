@@ -960,6 +960,21 @@ async function generarInforme() {
   toast('Generación de informe con IA — próximamente', '');
 }
 
+async function completarInspeccion() {
+  const btn = document.getElementById('btn-completar');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+  try {
+    await SYNC.actualizarEstado(APP.inspeccionActual.id, 'Completado');
+    toast('Inspección marcada como completada', 'ok');
+    setTimeout(() => { irA('p-lista'); cargarLista(); }, 800);
+  } catch (ex) {
+    toast('Error: ' + ex.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '✓ Marcar como completada';
+  }
+}
+
 // ════════════════════════════════════════════════════════
 //  ARRANQUE
 // ════════════════════════════════════════════════════════
