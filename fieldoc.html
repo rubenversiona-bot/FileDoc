@@ -261,16 +261,21 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
 .btn-editar-campo:hover { color: var(--acento); }
 .bottom-space { height: 90px; }
 
+/* ── Filtros de estadísticas ─────────────────────────── */
+.stat-filtro { transition: all 0.2s; user-select: none; }
+.stat-filtro:hover { border-color: var(--gris-5); transform: translateY(-2px); }
+.stat-filtro.activo-filtro { border-color: var(--acento); box-shadow: 0 0 0 2px rgba(0,200,150,0.2); }
+
 /* ── Botón borrar inspección ─────────────────────────── */
 .btn-borrar-insp { background: none; border: none; color: var(--gris-4); font-size: 18px; cursor: pointer; padding: 8px; border-radius: 8px; transition: all 0.15s; flex-shrink: 0; }
 .btn-borrar-insp:hover { color: var(--peligro); background: rgba(255,77,77,0.1); }
 
 /* ── Toggle modo claro ───────────────────────────────── */
-.btn-modo { background: var(--gris-2); border: 1px solid var(--gris-3); border-radius: 20px; color: var(--gris-6); font-size: 13px; padding: 4px 10px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; font-family: 'DM Mono', monospace; }
-.btn-modo:hover { border-color: var(--gris-5); color: var(--blanco); background: var(--gris-3); }
-/* En modo oscuro el botón muestra ☀ con aspecto claro para indicar "pasar a modo claro" */
-/* En modo claro el botón muestra 🌙 con aspecto oscuro para indicar "pasar a modo oscuro" */
-body.claro .btn-modo { background: #1A2233; border-color: #3D4A5C; color: #F0F4F8; }
+/* Modo oscuro → botón blanco con sol amarillo */
+.btn-modo { background: #F0F4F8; border: none; border-radius: 20px; color: #E8A800; font-size: 14px; padding: 5px 11px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; font-weight: 700; }
+.btn-modo:hover { background: #FFFFFF; transform: scale(1.05); }
+/* Modo claro → botón negro con luna */
+body.claro .btn-modo { background: #1A2233; border: none; color: #F0F4F8; }
 body.claro .btn-modo:hover { background: #2A3140; }
 
 /* ── Modo claro ──────────────────────────────────────── */
@@ -318,9 +323,15 @@ body.claro .explorador { border-right-color: var(--gris-3); }
   </div>
   <div class="contenido">
     <div class="stats-bar">
-      <div class="stat-card"><div class="stat-num blanco" id="stat-total">—</div><div class="stat-label">Total</div></div>
-      <div class="stat-card"><div class="stat-num warn"   id="stat-borrador">—</div><div class="stat-label">Borrador</div></div>
-      <div class="stat-card"><div class="stat-num acento" id="stat-enviado">—</div><div class="stat-label">Enviadas</div></div>
+      <div class="stat-card stat-filtro activo-filtro" id="filtro-todos" onclick="aplicarFiltro('todos')" style="cursor:pointer;">
+        <div class="stat-num blanco" id="stat-total">—</div><div class="stat-label">Todas</div>
+      </div>
+      <div class="stat-card stat-filtro" id="filtro-borrador" onclick="aplicarFiltro('Borrador')" style="cursor:pointer;">
+        <div class="stat-num warn" id="stat-borrador">—</div><div class="stat-label">Borrador</div>
+      </div>
+      <div class="stat-card stat-filtro" id="filtro-completado" onclick="aplicarFiltro('Completado')" style="cursor:pointer;">
+        <div class="stat-num acento" id="stat-completado">—</div><div class="stat-label">Completadas</div>
+      </div>
     </div>
     <div class="seccion-header">
       <span class="seccion-titulo">Inspecciones</span>
@@ -514,8 +525,9 @@ body.claro .explorador { border-right-color: var(--gris-3); }
 <script>
 function toggleModo() {
   const claro = document.body.classList.toggle('claro');
-  // Claro = ☀ (estamos en claro), Oscuro = 🌙 (estamos en oscuro)
-  document.querySelectorAll('.btn-modo').forEach(b => b.textContent = claro ? '☀' : '🌙');
+  // Modo oscuro → botón blanco con ☀️ (sol amarillo)
+  // Modo claro  → botón negro con 🌙 (luna)
+  document.querySelectorAll('.btn-modo').forEach(b => b.textContent = claro ? '🌙' : '☀️');
   localStorage.setItem('fieldoc_modo', claro ? 'claro' : 'oscuro');
 }
 // Restaurar modo guardado
@@ -524,7 +536,7 @@ function toggleModo() {
   if (modo === 'claro') {
     document.body.classList.add('claro');
     document.addEventListener('DOMContentLoaded', () => {
-      document.querySelectorAll('.btn-modo').forEach(b => b.textContent = '☀');
+      document.querySelectorAll('.btn-modo').forEach(b => b.textContent = '🌙');
     });
   }
 })();

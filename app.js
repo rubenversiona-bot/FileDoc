@@ -3,6 +3,9 @@
 //  Versión·A
 // ============================================================
 
+// Filtro activo en la lista
+let _filtroActivo = 'todos';
+
 const APP = {
   inspeccionActual: null,
   respuestas:       [],
@@ -111,19 +114,49 @@ async function cargarLista() {
 }
 
 function actualizarStats(inspecciones) {
-  document.getElementById('stat-total').textContent    = inspecciones.length;
-  document.getElementById('stat-borrador').textContent = inspecciones.filter(i => i.estado === 'Borrador').length;
-  document.getElementById('stat-enviado').textContent  = inspecciones.filter(i => i.estado === 'Enviado').length;
-  document.getElementById('insp-count').textContent    = inspecciones.length + ' registros';
+  document.getElementById('stat-total').textContent      = inspecciones.length;
+  document.getElementById('stat-borrador').textContent   = inspecciones.filter(i => i.estado === 'Borrador').length;
+  document.getElementById('stat-completado').textContent = inspecciones.filter(i => i.estado === 'Completado' || i.estado === 'Enviado').length;
+  const filtradas = _filtroActivo === 'todos' ? inspecciones : inspecciones.filter(i => {
+    if (_filtroActivo === 'Completado') return i.estado === 'Completado' || i.estado === 'Enviado';
+    return i.estado === _filtroActivo;
+  });
+  document.getElementById('insp-count').textContent = filtradas.length + ' registros';
+}
+
+function aplicarFiltro(filtro) {
+  _filtroActivo = filtro;
+  // Actualizar estilos de los filtros
+  document.querySelectorAll('.stat-filtro').forEach(el => el.classList.remove('activo-filtro'));
+  const idActivo = filtro === 'todos' ? 'filtro-todos' : filtro === 'Borrador' ? 'filtro-borrador' : 'filtro-completado';
+  document.getElementById(idActivo)?.classList.add('activo-filtro');
+  // Re-renderizar con el filtro aplicado
+  const clientes = window._appClientes || [];
+  renderLista(window._inspeccionesCache || [], clientes);
 }
 
 function renderLista(inspecciones, clientes) {
+  // Guardar caché para re-renderizar al cambiar filtro
+  window._inspeccionesCache = inspecciones;
+  window._appClientes       = clientes;
+
   const cont = document.getElementById('lista-contenido');
-  if (inspecciones.length === 0) {
-    cont.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Sin inspecciones</div><div class="empty-text">Pulsa el botón + para crear la primera inspección.</div></div>`;
+
+  // Aplicar filtro activo
+  const filtradas = _filtroActivo === 'todos' ? inspecciones : inspecciones.filter(i => {
+    if (_filtroActivo === 'Completado') return i.estado === 'Completado' || i.estado === 'Enviado';
+    return i.estado === _filtroActivo;
+  });
+
+  if (filtradas.length === 0) {
+    const msg = _filtroActivo === 'todos' ? 'Pulsa el botón + para crear la primera inspección.' : 'No hay inspecciones con este estado.';
+    cont.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">Sin inspecciones</div><div class="empty-text">${msg}</div></div>`;
+    document.getElementById('insp-count').textContent = '0 registros';
     return;
   }
-  const sorted = [...inspecciones].sort((a, b) => (b.fecha||'').localeCompare(a.fecha||''));
+
+  document.getElementById('insp-count').textContent = filtradas.length + ' registros';
+  const sorted = [...filtradas].sort((a, b) => (b.fecha||'').localeCompare(a.fecha||''));
   cont.innerHTML = sorted.map((ins, idx) => {
     const cliente   = clientes.find(c => c.id === ins.id_cliente);
     const nombreCli = cliente ? (cliente.nombre_comercial && cliente.nombre_comercial.trim() ? cliente.nombre_comercial : (cliente.nombre || ins.id_cliente)) : ins.id_cliente;
