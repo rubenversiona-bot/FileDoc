@@ -442,6 +442,26 @@ async function abrirInspeccion(id) {
       APP.preguntas = await API.getPreguntas(ins.id_plantilla);
       await DB.guardarCatalogo('preguntas_' + ins.id_plantilla, APP.preguntas);
     }
+
+    // Sincronizar archivos del servidor si hay conexión
+    if (SYNC.estaOnline()) {
+      try {
+        const archivosServidor = await API.getArchivos(id);
+        if (archivosServidor && archivosServidor.length > 0) {
+          const archivosLocales = await DB.getArchivosByInspeccion(id);
+          const idsLocales      = new Set(archivosLocales.map(a => a.id));
+          for (const a of archivosServidor) {
+            if (!idsLocales.has(a.id)) {
+              // Guardar metadatos en local — el blob no se descarga (solo la URL)
+              await DB.guardarArchivoMeta({ ...a, subido: true });
+            }
+          }
+          console.log('[APP] Archivos sincronizados:', archivosServidor.length);
+        }
+      } catch (ex) {
+        console.warn('[APP] Error sincronizando archivos:', ex.message);
+      }
+    }
     APP.secciones     = agruparPorSeccion(APP.preguntas);
     APP.seccionActual = 0;
     await renderSeccion();
@@ -585,38 +605,57 @@ function renderArchivos(audios, fotos, idPregunta, idRespuesta) {
   return htmlAudios + htmlFotos;
 }
 
-// ── Reproducir audio desde IndexedDB ────────────────────
+// ── Reproducir audio — local primero, Drive como fallback ──
 async function reproducirAudio(id) {
   try {
     const blob = await DB.getBlob(id);
-    if (!blob) { toast('Audio no disponible localmente', 'error'); return; }
-    const url    = URL.createObjectURL(blob);
-    const audio  = new Audio(url);
-    audio.onended = () => URL.revokeObjectURL(url);
-    audio.play();
-    toast('Reproduciendo audio...', '');
+    if (blob) {
+      const url   = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.onended = () => URL.revokeObjectURL(url);
+      audio.play();
+      toast('Reproduciendo audio...', '');
+    } else {
+      // Sin blob local — usar URL de Drive
+      const archivos = await DB.getArchivosByInspeccion(APP.inspeccionActual?.id || '');
+      const meta     = archivos.find(a => a.id === id);
+      if (meta?.url) {
+        window.open(meta.url, '_blank');
+        toast('Abriendo audio en Drive...', '');
+      } else {
+        toast('Audio no disponible', 'error');
+      }
+    }
   } catch (ex) {
     toast('Error reproduciendo: ' + ex.message, 'error');
   }
 }
 
-// ── Ver foto desde IndexedDB ─────────────────────────────
+// ── Ver foto — local primero, Drive como fallback ────────
 async function verFoto(id) {
   try {
     const blob = await DB.getBlob(id);
-    if (!blob) { toast('Foto no disponible localmente', 'error'); return; }
-    const url = URL.createObjectURL(blob);
-    // Abrir en lightbox simple
-    let lb = document.getElementById('lightbox');
-    if (!lb) {
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      let lb = document.getElementById('lightbox');
+      if (lb) lb.remove();
       lb = document.createElement('div');
       lb.id = 'lightbox';
       lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);display:flex;align-items:center;justify-content:center;z-index:600;cursor:pointer;';
       lb.onclick = () => { URL.revokeObjectURL(url); lb.remove(); };
+      lb.innerHTML = `<img src="${url}" style="max-width:95vw;max-height:90vh;border-radius:12px;object-fit:contain;">`;
       document.body.appendChild(lb);
+    } else {
+      // Sin blob local — usar URL de Drive
+      const archivos = await DB.getArchivosByInspeccion(APP.inspeccionActual?.id || '');
+      const meta     = archivos.find(a => a.id === id);
+      if (meta?.url) {
+        window.open(meta.url, '_blank');
+        toast('Abriendo foto en Drive...', '');
+      } else {
+        toast('Foto no disponible', 'error');
+      }
     }
-    lb.innerHTML = `<img src="${url}" style="max-width:95vw;max-height:90vh;border-radius:12px;object-fit:contain;">`;
-    lb.style.display = 'flex';
   } catch (ex) {
     toast('Error mostrando foto: ' + ex.message, 'error');
   }
