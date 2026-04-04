@@ -266,8 +266,12 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
 .btn-borrar-insp:hover { color: var(--peligro); background: rgba(255,77,77,0.1); }
 
 /* ── Toggle modo claro ───────────────────────────────── */
-.btn-modo { background: none; border: 1px solid var(--gris-3); border-radius: 20px; color: var(--gris-5); font-size: 14px; padding: 4px 10px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
-.btn-modo:hover { border-color: var(--gris-5); color: var(--blanco); }
+.btn-modo { background: var(--gris-2); border: 1px solid var(--gris-3); border-radius: 20px; color: var(--gris-6); font-size: 13px; padding: 4px 10px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; font-family: 'DM Mono', monospace; }
+.btn-modo:hover { border-color: var(--gris-5); color: var(--blanco); background: var(--gris-3); }
+/* En modo oscuro el botón muestra ☀ con aspecto claro para indicar "pasar a modo claro" */
+/* En modo claro el botón muestra 🌙 con aspecto oscuro para indicar "pasar a modo oscuro" */
+body.claro .btn-modo { background: #1A2233; border-color: #3D4A5C; color: #F0F4F8; }
+body.claro .btn-modo:hover { background: #2A3140; }
 
 /* ── Modo claro ──────────────────────────────────────── */
 body.claro {
@@ -309,7 +313,7 @@ body.claro .explorador { border-right-color: var(--gris-3); }
 <div class="pantalla activa" id="p-lista">
   <div class="header">
     <div class="logo"><span class="logo-dot"></span>Fieldoc</div>
-    <button class="btn-modo" onclick="toggleModo()" id="btn-modo" title="Cambiar modo">☀</button>
+    <button class="btn-modo" onclick="toggleModo()" id="btn-modo-1" title="Cambiar modo">☀</button>
     <span class="sync-badge online" id="sync-status">Sincronizado</span>
   </div>
   <div class="contenido">
@@ -333,7 +337,7 @@ body.claro .explorador { border-right-color: var(--gris-3); }
   <div class="header">
     <button class="header-back" onclick="irA('p-lista')">← Volver</button>
     <span class="header-title">Nueva inspección</span>
-    <div style="width:60px"></div>
+    <button class="btn-modo" onclick="toggleModo()" id="btn-modo-2" title="Cambiar modo">☀</button>
   </div>
   <div class="contenido">
     <div class="form-group">
@@ -377,6 +381,7 @@ body.claro .explorador { border-right-color: var(--gris-3); }
   <div class="header">
     <button class="header-back" onclick="irA('p-lista');cargarLista()">← Salir</button>
     <span class="header-title" id="form-titulo-header">Inspección</span>
+    <button class="btn-modo" onclick="toggleModo()" id="btn-modo-3" title="Cambiar modo">☀</button>
     <span class="sync-badge online" id="sync-status-form">✓</span>
   </div>
 
@@ -452,6 +457,7 @@ body.claro .explorador { border-right-color: var(--gris-3); }
   <div class="header">
     <button class="header-back" onclick="irA('p-formulario')">← Volver</button>
     <span class="header-title">Resumen</span>
+    <button class="btn-modo" onclick="toggleModo()" id="btn-modo-4" title="Cambiar modo">☀</button>
     <span class="sync-badge online" id="sync-status-resumen">✓</span>
   </div>
   <div class="contenido">
@@ -491,7 +497,7 @@ body.claro .explorador { border-right-color: var(--gris-3); }
     <button class="btn-primario" id="btn-generar-informe" onclick="generarInforme()" style="margin-bottom:12px">
       ✦ Generar informe con IA
     </button>
-    <button class="btn-primario" id="btn-completar" onclick="completarInspeccion()" style="margin-bottom:12px;background:var(--acento-2);">
+    <button class="btn-primario" id="btn-estado-insp" onclick="toggleEstadoInspeccion()" style="margin-bottom:12px;background:var(--acento-2);">
       ✓ Marcar como completada
     </button>
     <button class="btn-secundario" onclick="irA('p-formulario')">
@@ -508,7 +514,8 @@ body.claro .explorador { border-right-color: var(--gris-3); }
 <script>
 function toggleModo() {
   const claro = document.body.classList.toggle('claro');
-  document.getElementById('btn-modo').textContent = claro ? '🌙' : '☀';
+  // Claro = ☀ (estamos en claro), Oscuro = 🌙 (estamos en oscuro)
+  document.querySelectorAll('.btn-modo').forEach(b => b.textContent = claro ? '☀' : '🌙');
   localStorage.setItem('fieldoc_modo', claro ? 'claro' : 'oscuro');
 }
 // Restaurar modo guardado
@@ -517,8 +524,7 @@ function toggleModo() {
   if (modo === 'claro') {
     document.body.classList.add('claro');
     document.addEventListener('DOMContentLoaded', () => {
-      const btn = document.getElementById('btn-modo');
-      if (btn) btn.textContent = '🌙';
+      document.querySelectorAll('.btn-modo').forEach(b => b.textContent = '☀');
     });
   }
 })();

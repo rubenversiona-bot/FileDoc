@@ -412,6 +412,7 @@ async function abrirInspeccion(id) {
     APP.secciones     = agruparPorSeccion(APP.preguntas);
     APP.seccionActual = 0;
     await renderSeccion();
+    actualizarBotonesResumen();
   } catch (ex) {
     toast('Error: ' + ex.message, 'error');
     irA('p-lista');
@@ -928,6 +929,8 @@ async function abrirResumen(idInspeccion) {
       </div>`;
     }).join('');
 
+    actualizarBotonesResumen();
+
   } catch (ex) {
     toast('Error cargando resumen: ' + ex.message, 'error');
     irA('p-lista');
@@ -960,20 +963,45 @@ async function generarInforme() {
   toast('Generación de informe con IA — próximamente', '');
 }
 
-async function completarInspeccion() {
-  const btn = document.getElementById('btn-completar');
-  btn.disabled = true;
-  btn.textContent = 'Guardando...';
-  try {
-    await SYNC.actualizarEstado(APP.inspeccionActual.id, 'Completado');
-    toast('Inspección marcada como completada', 'ok');
-    setTimeout(() => { irA('p-lista'); cargarLista(); }, 800);
-  } catch (ex) {
-    toast('Error: ' + ex.message, 'error');
-    btn.disabled = false;
-    btn.textContent = '✓ Marcar como completada';
+// ── Botón de estado único — alterna entre Completado y Borrador ──
+function actualizarBotonesResumen() {
+  const estado = APP.inspeccionActual?.estado || 'Borrador';
+  const btn    = document.getElementById('btn-estado-insp');
+  if (!btn) return;
+  if (estado === 'Completado' || estado === 'Enviado') {
+    btn.textContent    = '↩ Volver a borrador';
+    btn.style.background = 'var(--warn)';
+    btn.style.color      = 'var(--negro)';
+  } else {
+    btn.textContent    = '✓ Marcar como completada';
+    btn.style.background = 'var(--acento-2)';
+    btn.style.color      = 'var(--blanco)';
   }
 }
+
+async function toggleEstadoInspeccion() {
+  const estado    = APP.inspeccionActual?.estado || 'Borrador';
+  const nuevoEstado = (estado === 'Completado' || estado === 'Enviado') ? 'Borrador' : 'Completado';
+  const btn = document.getElementById('btn-estado-insp');
+  btn.disabled    = true;
+  btn.textContent = 'Guardando...';
+  try {
+    await SYNC.actualizarEstado(APP.inspeccionActual.id, nuevoEstado);
+    APP.inspeccionActual.estado = nuevoEstado;
+    actualizarBotonesResumen();
+    toast(nuevoEstado === 'Completado' ? 'Inspección completada' : 'Devuelta a borrador', 'ok');
+    if (nuevoEstado === 'Completado') {
+      setTimeout(() => { irA('p-lista'); cargarLista(); }, 800);
+    }
+  } catch (ex) {
+    toast('Error: ' + ex.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function completarInspeccion() { await toggleEstadoInspeccion(); }
+async function volverABorrador()      { await toggleEstadoInspeccion(); }
 
 // ════════════════════════════════════════════════════════
 //  ARRANQUE
