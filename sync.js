@@ -104,15 +104,40 @@ const SYNC = {
 
       // Guardar o actualizar en local todos los del servidor
       for (const ins of inspecciones) {
-        const local = locales.find(l => l.id === ins.id);
-        // Solo sobreescribir si no hay cambios locales pendientes
         const tienePendientes = await DB._tienePendientes(ins.id);
         if (!tienePendientes) {
           await DB.guardarInspeccion({ ...ins, _pendiente: false });
         }
+
+        // Descargar respuestas — solo sobreescribe las que no tengan pendiente local
+        try {
+          const respuestasServidor = await API.getRespuestas(ins.id);
+          for (const r of respuestasServidor) {
+            const respLocal = await DB.getRespuesta(r.id);
+            if (!respLocal || !respLocal._pendiente) {
+              await DB.guardarRespuesta({ ...r, _pendiente: false });
+            }
+          }
+        } catch (ex) {
+          console.warn('[SYNC] Error respuestas ' + ins.id + ':', ex.message);
+        }
+
+        // Descargar metadatos de archivos — solo los que no existen localmente
+        try {
+          const archivosServidor = await API.getArchivos(ins.id);
+          const archivosLocales  = await DB.getArchivosByInspeccion(ins.id);
+          const idsLocalesArch   = new Set(archivosLocales.map(a => a.id));
+          for (const a of archivosServidor) {
+            if (!idsLocalesArch.has(a.id)) {
+              await DB.guardarArchivoMeta({ ...a, subido: true });
+            }
+          }
+        } catch (ex) {
+          console.warn('[SYNC] Error archivos ' + ins.id + ':', ex.message);
+        }
       }
 
-      console.log(`[SYNC] Reconciliado: ${inspecciones.length} inspecciones del servidor`);
+      console.log('[SYNC] Reconciliado: ' + inspecciones.length + ' inspecciones');
     } catch (ex) {
       console.warn('[SYNC] Error reconciliando:', ex.message);
     }

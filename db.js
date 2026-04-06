@@ -284,6 +284,11 @@ const DB = {
     }
   },
 
+  // Alias para actualización de estado local (usado por polling de informe)
+  async actualizarEstadoLocal(id, estado) {
+    return this.actualizarEstadoInspeccion(id, estado);
+  },
+
   // Comprobar si hay operaciones pendientes para una inspección
   async _tienePendientes(idInspeccion) {
     const queue = await this.getQueue();
