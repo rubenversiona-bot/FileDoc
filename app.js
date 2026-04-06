@@ -416,7 +416,7 @@ async function abrirInspeccion(id) {
     if (APP.respuestas.length === 0 && SYNC.estaOnline()) {
       try {
         console.log('[APP] Descargando respuestas del servidor para:', id);
-        const respServidor = await API.getRespuestasByInspeccion(id);
+        const respServidor = await API.getRespuestas(id);
         if (respServidor && respServidor.length > 0) {
           for (const r of respServidor) {
             await DB.guardarRespuesta({ ...r, _pendiente: false });
@@ -430,7 +430,7 @@ async function abrirInspeccion(id) {
     } else if (APP.respuestas.length > 0 && SYNC.estaOnline()) {
       // Hay respuestas locales — verificar si el servidor tiene datos más recientes
       try {
-        const respServidor = await API.getRespuestasByInspeccion(id);
+        const respServidor = await API.getRespuestas(id);
         if (respServidor && respServidor.length > 0) {
           // Actualizar localmente solo las que tienen respuesta en servidor y no tienen pendientes locales
           for (const rs of respServidor) {
