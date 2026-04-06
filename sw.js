@@ -1,10 +1,10 @@
 // ============================================================
 //  FIELDOC — sw.js
 //  Service Worker — cache offline
-//  Versión·A · v1.0
+//  Versión·A · v1.1
 // ============================================================
 
-const CACHE_NAME = 'fieldoc-v2';
+const CACHE_NAME = 'fieldoc-v3';
 
 // Archivos que se cachean al instalar
 const ARCHIVOS_CACHE = [
@@ -13,7 +13,8 @@ const ARCHIVOS_CACHE = [
   './api.js',
   './sync.js',
   './app.js',
-  'https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap'
+  'https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500&display=swap',
+  'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js'
 ];
 
 // ── Instalación: cachear archivos estáticos ──────────────
@@ -61,7 +62,8 @@ self.addEventListener('fetch', e => {
         // Cachear respuestas válidas de fuentes conocidas
         if (response.ok && (
           url.includes('fonts.googleapis.com') ||
-          url.includes('fonts.gstatic.com')
+          url.includes('fonts.gstatic.com') ||
+          url.includes('cdn.jsdelivr.net')
         )) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
