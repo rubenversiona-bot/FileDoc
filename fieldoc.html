@@ -78,6 +78,9 @@ body { font-family: 'DM Sans', sans-serif; background: var(--negro); color: var(
 .badge-borrador  { background: rgba(255,183,0,0.15);  color: var(--warn); }
 .badge-completado{ background: rgba(0,153,255,0.15);  color: var(--acento-2); }
 .badge-enviado   { background: rgba(0,200,150,0.15);  color: var(--acento); }
+.badge-generando  { background: rgba(155,89,182,0.15); color: #9B59B6; }
+.badge-informe    { background: rgba(155,89,182,0.25); color: #7D3C98; font-weight: 700; }
+.badge-error-inf  { background: rgba(231,76,60,0.15);  color: #c0392b; }
 
 .empty-state { text-align: center; padding: 60px 20px; color: var(--gris-5); }
 .empty-icon  { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
@@ -505,7 +508,7 @@ body.claro .explorador { border-right-color: var(--gris-3); }
 
     <div class="divisor"></div>
 
-    <button class="btn-primario" id="btn-generar-informe" onclick="generarInforme()" style="margin-bottom:12px">
+    <button class="btn-primario" id="btn-generar-informe" style="margin-bottom:12px">
       ✦ Generar informe con IA
     </button>
     <button class="btn-primario" id="btn-estado-insp" onclick="toggleEstadoInspeccion()" style="margin-bottom:12px;background:var(--acento-2);">
