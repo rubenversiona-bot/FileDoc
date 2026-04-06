@@ -1103,7 +1103,9 @@ async function verInforme() {
   try {
     const resultado = await API.getEstadoInforme(ins.id);
     if (resultado.estado === 'generado' && resultado.url) {
-      window.open(resultado.url, '_blank');
+      // Convertir URL de Drive /view a /preview para renderizado inline
+      const urlPreview = resultado.url.replace('/view', '/preview').replace('?usp=drivesdk', '');
+      window.open(urlPreview, '_blank');
     } else if (resultado.estado === 'error') {
       toast('Error en el informe: ' + (resultado.error || 'desconocido'), 'error');
     } else {
