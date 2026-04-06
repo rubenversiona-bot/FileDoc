@@ -160,8 +160,19 @@ function renderLista(inspecciones, clientes) {
   cont.innerHTML = sorted.map((ins, idx) => {
     const cliente   = clientes.find(c => c.id === ins.id_cliente);
     const nombreCli = cliente ? (cliente.nombre_comercial && cliente.nombre_comercial.trim() ? cliente.nombre_comercial : (cliente.nombre || ins.id_cliente)) : ins.id_cliente;
-    const badgeClass = { 'Borrador':'badge-borrador','Completado':'badge-completado','Enviado':'badge-enviado' }[ins.estado] || 'badge-borrador';
-    const icono = ins.estado === 'Enviado' ? '✅' : ins.estado === 'Completado' ? '🔵' : '🟡';
+    const badgeClass = {
+      'Borrador':           'badge-borrador',
+      'Completado':         'badge-completado',
+      'Enviado':            'badge-enviado',
+      'Generando informe':  'badge-generando',
+      'Informe disponible': 'badge-informe',
+      'Error en informe':   'badge-error-inf'
+    }[ins.estado] || 'badge-borrador';
+    const icono = ins.estado === 'Enviado'            ? '✅' :
+                  ins.estado === 'Completado'         ? '🔵' :
+                  ins.estado === 'Generando informe'  ? '⏳' :
+                  ins.estado === 'Informe disponible' ? '📄' :
+                  ins.estado === 'Error en informe'   ? '⚠️' : '🟡';
     return `<div class="inspeccion-card" style="animation-delay:${idx*0.05}s">
       <div class="card-icono" style="background:var(--gris-2);cursor:pointer;" onclick="abrirInspeccion('${ins.id}')">${icono}</div>
       <div class="card-info" style="cursor:pointer;" onclick="abrirInspeccion('${ins.id}')">
@@ -1031,23 +1042,192 @@ function irAPregunta(seccionNum, idPregunta) {
   });
 }
 
+// ════════════════════════════════════════════════════════
+//  INFORME IA — Solicitar generación
+// ════════════════════════════════════════════════════════
 async function generarInforme() {
-  toast('Generación de informe con IA — próximamente', '');
+  const ins = APP.inspeccionActual;
+  if (!ins) return;
+
+  // Guardia: no solicitar si ya está en proceso o disponible
+  if (ins.estado === 'Generando informe') {
+    toast('El informe ya está en proceso. Espera a que finalice.', '');
+    return;
+  }
+  if (ins.estado === 'Informe disponible') {
+    verInforme();
+    return;
+  }
+  if (!SYNC.estaOnline()) {
+    toast('Necesitas conexión para generar el informe.', 'error');
+    return;
+  }
+
+  // Confirmar con el usuario
+  const confirmado = confirm(
+    '¿Generar el Informe Técnico de Inspección con IA?\n\n' +
+    'El proceso puede tardar varios minutos. Puedes cerrar la app — ' +
+    'recibirás aviso cuando el informe esté disponible.'
+  );
+  if (!confirmado) return;
+
+  const btn = document.getElementById('btn-generar-informe');
+  if (btn) { btn.disabled = true; btn.textContent = 'Solicitando...'; }
+
+  try {
+    await API.solicitarInforme(ins.id);
+
+    // Actualizar estado local inmediatamente
+    ins.estado = 'Generando informe';
+    await DB.actualizarEstadoLocal(ins.id, 'Generando informe');
+
+    actualizarBotonesResumen();
+    toast('Informe en proceso. Te avisaremos cuando esté listo.', 'ok');
+
+    // Iniciar polling para detectar cuando termina
+    _iniciarPollingInforme(ins.id);
+
+  } catch (ex) {
+    toast('Error al solicitar informe: ' + ex.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; }
+    actualizarBotonesResumen();
+  }
+}
+
+// ── Abrir el informe generado en nueva pestaña ────────────
+async function verInforme() {
+  const ins = APP.inspeccionActual;
+  if (!ins) return;
+
+  try {
+    const resultado = await API.getEstadoInforme(ins.id);
+    if (resultado.estado === 'generado' && resultado.url) {
+      window.open(resultado.url, '_blank');
+    } else if (resultado.estado === 'error') {
+      toast('Error en el informe: ' + (resultado.error || 'desconocido'), 'error');
+    } else {
+      toast('El informe aún no está disponible.', '');
+    }
+  } catch (ex) {
+    toast('Error al obtener el informe: ' + ex.message, 'error');
+  }
+}
+
+// ── Polling — comprueba el estado del informe cada 30s ────
+var _pollingInformeTimer = null;
+
+function _iniciarPollingInforme(idInspeccion) {
+  _detenerPollingInforme(); // limpiar si había uno previo
+
+  _pollingInformeTimer = setInterval(async () => {
+    if (!SYNC.estaOnline()) return;
+    try {
+      const resultado = await API.getEstadoInforme(idInspeccion);
+
+      if (resultado.estado === 'generado') {
+        _detenerPollingInforme();
+
+        // Actualizar estado local
+        if (APP.inspeccionActual?.id === idInspeccion) {
+          APP.inspeccionActual.estado = 'Informe disponible';
+          await DB.actualizarEstadoLocal(idInspeccion, 'Informe disponible');
+          actualizarBotonesResumen();
+        }
+
+        // Actualizar la lista en segundo plano
+        cargarLista();
+        toast('✅ Informe disponible. Pulsa "Ver informe" para abrirlo.', 'ok');
+
+      } else if (resultado.estado === 'error') {
+        _detenerPollingInforme();
+        if (APP.inspeccionActual?.id === idInspeccion) {
+          APP.inspeccionActual.estado = 'Completado';
+          await DB.actualizarEstadoLocal(idInspeccion, 'Completado');
+          actualizarBotonesResumen();
+        }
+        toast('Error generando informe: ' + (resultado.error || 'desconocido'), 'error');
+      }
+      // Si está 'pendiente' seguimos esperando
+    } catch (e) {
+      // Fallo de red puntual — seguimos intentando
+      console.warn('[POLLING] Error consultando estado informe:', e.message);
+    }
+  }, 30000); // cada 30 segundos
+}
+
+function _detenerPollingInforme() {
+  if (_pollingInformeTimer) {
+    clearInterval(_pollingInformeTimer);
+    _pollingInformeTimer = null;
+  }
 }
 
 // ── Botón de estado único — alterna entre Completado y Borrador ──
 function actualizarBotonesResumen() {
   const estado = APP.inspeccionActual?.estado || 'Borrador';
   const btn    = document.getElementById('btn-estado-insp');
-  if (!btn) return;
-  if (estado === 'Completado' || estado === 'Enviado') {
-    btn.textContent    = '↩ Volver a borrador';
-    btn.style.background = 'var(--warn)';
-    btn.style.color      = 'var(--negro)';
-  } else {
-    btn.textContent    = '✓ Marcar como completada';
-    btn.style.background = 'var(--acento-2)';
-    btn.style.color      = 'var(--blanco)';
+  const btnInf = document.getElementById('btn-generar-informe');
+
+  // ── Botón de estado ──────────────────────────────────
+  if (btn) {
+    if (estado === 'Completado' || estado === 'Enviado') {
+      btn.textContent      = '↩ Volver a borrador';
+      btn.style.background = 'var(--warn)';
+      btn.style.color      = 'var(--negro)';
+      btn.disabled         = false;
+    } else if (estado === 'Generando informe' || estado === 'Informe disponible') {
+      btn.textContent      = '↩ Volver a borrador';
+      btn.style.background = 'var(--warn)';
+      btn.style.color      = 'var(--negro)';
+      btn.disabled         = false;
+    } else {
+      btn.textContent      = '✓ Marcar como completada';
+      btn.style.background = 'var(--acento-2)';
+      btn.style.color      = 'var(--blanco)';
+      btn.disabled         = false;
+    }
+  }
+
+  // ── Botón de informe IA ──────────────────────────────
+  if (btnInf) {
+    if (estado === 'Generando informe') {
+      btnInf.textContent      = '⏳ Generando informe...';
+      btnInf.style.background = '#9B59B6';
+      btnInf.style.color      = 'var(--blanco)';
+      btnInf.style.opacity    = '0.7';
+      btnInf.style.cursor     = 'not-allowed';
+      btnInf.disabled         = true;
+      // Reanudar polling si volvemos a esta pantalla
+      if (!_pollingInformeTimer && APP.inspeccionActual) {
+        _iniciarPollingInforme(APP.inspeccionActual.id);
+      }
+    } else if (estado === 'Informe disponible') {
+      btnInf.textContent      = '📄 Ver informe';
+      btnInf.style.background = '#9B59B6';
+      btnInf.style.color      = 'var(--blanco)';
+      btnInf.style.opacity    = '1';
+      btnInf.style.cursor     = 'pointer';
+      btnInf.disabled         = false;
+      btnInf.onclick          = verInforme;
+    } else if (estado === 'Completado' || estado === 'Enviado') {
+      btnInf.textContent      = '🤖 Generar informe IA';
+      btnInf.style.background = '#9B59B6';
+      btnInf.style.color      = 'var(--blanco)';
+      btnInf.style.opacity    = '1';
+      btnInf.style.cursor     = 'pointer';
+      btnInf.disabled         = false;
+      btnInf.onclick          = generarInforme;
+    } else {
+      // Borrador — no se puede generar informe todavía
+      btnInf.textContent      = '🤖 Generar informe IA';
+      btnInf.style.background = 'var(--gris-3)';
+      btnInf.style.color      = 'var(--gris-5)';
+      btnInf.style.opacity    = '0.5';
+      btnInf.style.cursor     = 'not-allowed';
+      btnInf.disabled         = true;
+      btnInf.onclick          = null;
+    }
   }
 }
 
