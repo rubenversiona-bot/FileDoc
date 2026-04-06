@@ -806,8 +806,57 @@ function seleccionarDesdeModal(id) {
   }
 }
 
+// ── Conversión WebM→MP3 con lamejs ──────────────────────
+async function convertirAMp3(webmBlob) {
+  // 1. Decodificar el audio WebM a PCM usando AudioContext
+  const arrayBuffer = await webmBlob.arrayBuffer();
+  const audioCtx    = new (window.AudioContext || window.webkitAudioContext)();
+  const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  await audioCtx.close();
+
+  // 2. Obtener samples PCM mono (canal 0) como Int16
+  const sampleRate  = audioBuffer.sampleRate;
+  const floatData   = audioBuffer.getChannelData(0);
+  const samples     = new Int16Array(floatData.length);
+  for (let i = 0; i < floatData.length; i++) {
+    const s = Math.max(-1, Math.min(1, floatData[i]));
+    samples[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+
+  // 3. Codificar a MP3 con lamejs
+  const mp3enc   = new lamejs.Mp3Encoder(1, sampleRate, 128);
+  const mp3Parts = [];
+  const blockSize = 1152;
+  for (let i = 0; i < samples.length; i += blockSize) {
+    const chunk = samples.subarray(i, i + blockSize);
+    const buf   = mp3enc.encodeBuffer(chunk);
+    if (buf.length > 0) mp3Parts.push(buf);
+  }
+  const last = mp3enc.flush();
+  if (last.length > 0) mp3Parts.push(last);
+
+  return new Blob(mp3Parts, { type: 'audio/mpeg' });
+}
+
 // ── Grabación de audio ───────────────────────────────────
 async function iniciarGrabacion(idPregunta, idRespuesta) {
+  // Verificar que lamejs está cargado
+  if (typeof lamejs === 'undefined') {
+    toast('Cargando codificador MP3...', '');
+    try {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('No se pudo cargar lamejs'));
+        document.head.appendChild(s);
+      });
+    } catch (ex) {
+      toast('Error cargando codificador MP3: ' + ex.message, 'error');
+      return;
+    }
+  }
+
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     APP.streamActivo   = stream;
@@ -824,20 +873,37 @@ async function iniciarGrabacion(idPregunta, idRespuesta) {
       APP.streamActivo = null;
       APP.grabando     = null;
       APP.grabInterval = null;
-      document.getElementById('modal-grabacion').style.display = 'none';
 
-      const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
-      const id   = uid('AUD');
-      const archivos = await DB.getArchivosByRespuesta(idRespuesta);
-      const audios   = archivos.filter(a => a.tipo === 'Audio');
-      const meta = { id, id_respuesta: idRespuesta, id_inspeccion: APP.inspeccionActual.id, tipo: 'Audio', num_orden: audios.length + 1, subido: false, url: null, timestamp: new Date().toISOString() };
-      await SYNC.guardarArchivo(meta, blob);
-      toast('Audio guardado', 'ok');
-      await refrescarArchivos(idPregunta, idRespuesta);
+      // Mostrar estado de conversión en el modal antes de cerrarlo
+      document.getElementById('grab-label').textContent = 'Convirtiendo a MP3...';
+      document.getElementById('btn-stop-grab').disabled = true;
+
+      try {
+        const webmBlob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+        const mp3Blob  = await convertirAMp3(webmBlob);
+
+        document.getElementById('modal-grabacion').style.display = 'none';
+        document.getElementById('grab-label').textContent = 'Grabando...';
+        document.getElementById('btn-stop-grab').disabled = false;
+
+        const id   = uid('AUD');
+        const archivos = await DB.getArchivosByRespuesta(idRespuesta);
+        const audios   = archivos.filter(a => a.tipo === 'Audio');
+        const meta = { id, id_respuesta: idRespuesta, id_inspeccion: APP.inspeccionActual.id, tipo: 'Audio', num_orden: audios.length + 1, subido: false, url: null, timestamp: new Date().toISOString() };
+        await SYNC.guardarArchivo(meta, mp3Blob);
+        toast('Audio MP3 guardado', 'ok');
+        await refrescarArchivos(idPregunta, idRespuesta);
+      } catch (convErr) {
+        document.getElementById('modal-grabacion').style.display = 'none';
+        document.getElementById('grab-label').textContent = 'Grabando...';
+        document.getElementById('btn-stop-grab').disabled = false;
+        toast('Error convirtiendo audio: ' + convErr.message, 'error');
+      }
     };
 
     let seg = 0;
     document.getElementById('grab-timer').textContent = '00:00';
+    document.getElementById('grab-label').textContent = 'Grabando...';
     document.getElementById('modal-grabacion').style.display = 'flex';
     document.getElementById('btn-stop-grab').onclick = () => {
       if (APP.grabando && APP.grabando.state === 'recording') APP.grabando.stop();
@@ -1103,9 +1169,8 @@ async function verInforme() {
   try {
     const resultado = await API.getEstadoInforme(ins.id);
     if (resultado.estado === 'generado' && resultado.url) {
-      // Servir el HTML directamente desde Apps Script — se renderiza en el navegador
-      const urlInforme = API_URL + '?action=getinforme&id_inspeccion=' + ins.id;
-      window.open(urlInforme, '_blank');
+      // Abrir directamente la URL del Google Doc
+      window.open(resultado.url, '_blank');
     } else if (resultado.estado === 'error') {
       toast('Error en el informe: ' + (resultado.error || 'desconocido'), 'error');
     } else {
